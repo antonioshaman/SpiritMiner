@@ -40,6 +40,14 @@ def main_menu_kb() -> InlineKeyboardMarkup:
             callback_data=MenuAction(action="spirit_rank").pack(),
         )],
         [InlineKeyboardButton(
+            text="\U0001f91d Партнёры",
+            callback_data=MenuAction(action="partners").pack(),
+        )],
+        [InlineKeyboardButton(
+            text="\U0001f4ca Spirit Index",
+            callback_data=MenuAction(action="spirit_index").pack(),
+        )],
+        [InlineKeyboardButton(
             text="\U0001f514 Подписка на алерты",
             callback_data=MenuAction(action="subscribe").pack(),
         )],
@@ -90,6 +98,9 @@ def coin_actions_kb(coin_id: int) -> InlineKeyboardMarkup:
             InlineKeyboardButton(text="⛏️ Зашёл", callback_data=TradeAction(coin_id=coin_id, action="enter").pack()),
             InlineKeyboardButton(text="\U0001f3c1 Вышел", callback_data=TradeAction(coin_id=coin_id, action="exit").pack()),
             InlineKeyboardButton(text="\U0001f440 Watch", callback_data=CoinAction(coin_id=coin_id, action="watch").pack()),
+        ],
+        [
+            InlineKeyboardButton(text="\U0001f91d Партнёры", callback_data=CoinAction(coin_id=coin_id, action="partners").pack()),
         ],
         [InlineKeyboardButton(
             text="◀️ Назад",

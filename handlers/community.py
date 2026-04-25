@@ -1,7 +1,7 @@
 from aiogram import Router, F
 from aiogram.types import CallbackQuery
 
-from db.queries import CoinQueries, VoteQueries, ActionQueries
+from db.queries import CoinQueries, VoteQueries, ActionQueries, PointsQueries
 from keyboards.callbacks import MenuAction, VoteAction, TradeAction, CoinAction
 from keyboards.main_menu import coin_actions_kb, back_to_menu_kb
 from utils.formatting import format_coin_card
@@ -16,18 +16,18 @@ async def cb_vote(callback: CallbackQuery, callback_data: VoteAction) -> None:
     vote = callback_data.vote
 
     await VoteQueries.vote(user_id, coin_id, vote)
+    pts = await PointsQueries.award(user_id, 2)
 
     sentiment = await VoteQueries.get_sentiment(coin_id)
     total = sentiment["total"]
     if total > 0:
         bull_pct = sentiment["bullish"] * 100 // total
-        emoji_map = {"bullish": "\U0001f44d", "watching": "\U0001f440", "bearish": "❌"}
         await callback.answer(
-            f"Голос принят! Sentiment: {bull_pct}% bullish ({total} голосов)",
+            f"Голос принят! +2 SP ({pts}) | Sentiment: {bull_pct}% bullish ({total} голосов)",
             show_alert=True,
         )
     else:
-        await callback.answer("Голос принят!", show_alert=True)
+        await callback.answer(f"Голос принят! +2 SP ({pts})", show_alert=True)
 
 
 @router.callback_query(TradeAction.filter())
@@ -43,10 +43,11 @@ async def cb_trade(callback: CallbackQuery, callback_data: TradeAction) -> None:
 
     price = coin.exchange_rate_usd or coin.exchange_rate_btc
     await ActionQueries.record_action(user_id, coin_id, action, price)
+    pts = await PointsQueries.award(user_id, 5)
 
     if action == "enter":
         await callback.answer(
-            f"⛏️ Зашёл в {coin.tag} по ${price:.6f}. Удачи!",
+            f"⛏️ Зашёл в {coin.tag} по ${price:.6f}. +5 SP ({pts}). Удачи!",
             show_alert=True,
         )
     else:
@@ -56,34 +57,41 @@ async def cb_trade(callback: CallbackQuery, callback_data: TradeAction) -> None:
                 entry = p["entry_price"]
                 if entry > 0:
                     roi = ((price - entry) / entry) * 100
+                    bonus = 10 if roi > 20 else 0
+                    if bonus:
+                        await PointsQueries.award(user_id, bonus)
+                        pts += bonus
                     emoji = "\U0001f7e2" if roi > 0 else "\U0001f534"
                     await callback.answer(
-                        f"\U0001f3c1 Вышел из {coin.tag}. ROI: {emoji} {roi:+.1f}%",
+                        f"\U0001f3c1 Вышел из {coin.tag}. ROI: {emoji} {roi:+.1f}% | +{5 + bonus} SP ({pts})",
                         show_alert=True,
                     )
                     return
-        await callback.answer(f"\U0001f3c1 Вышел из {coin.tag}", show_alert=True)
+        await callback.answer(f"\U0001f3c1 Вышел из {coin.tag}. +5 SP ({pts})", show_alert=True)
 
 
 @router.callback_query(MenuAction.filter(F.action == "spirit_rank"))
 async def cb_spirit_rank(callback: CallbackQuery) -> None:
     user_id = callback.from_user.id
 
+    points = await PointsQueries.get_points(user_id)
+    level = PointsQueries.get_level(points)
+    next_lvl = PointsQueries.get_next_level(points)
     pairs = await ActionQueries.get_entry_exit_pairs(user_id)
 
     lines = ["\U0001f3c6 <b>Spirit Rank</b>\n"]
+    lines.append(f"\U0001f396 Уровень: <b>{level}</b>")
+    lines.append(f"\U0001f4ab Spirit Points: <b>{points} SP</b>")
+    if next_lvl:
+        lines.append(f"\U0001f4a1 До <b>{next_lvl[0]}</b>: ещё {next_lvl[1]} SP")
+    lines.append("")
 
     if not pairs:
         lines.append("Ты ещё не отмечал входы/выходы.")
-        lines.append("Используй кнопки ⛏️ Зашёл / \U0001f3c1 Вышел в карточке монеты.")
-        lines.append("")
-
-        leaderboard = await ActionQueries.get_leaderboard(10)
-        if leaderboard:
-            lines.append("<b>\U0001f4ca Лидерборд:</b>\n")
-            for i, entry in enumerate(leaderboard, 1):
-                name = entry.get("username") or f"user_{entry['user_id']}"
-                lines.append(f"{i}. @{name} — {entry['trades']} монет")
+        lines.append("Используй ⛏️ Зашёл / \U0001f3c1 Вышел в карточке монеты.")
+        lines.append("\n<b>Как заработать SP:</b>")
+        lines.append("+1 поиск монеты | +2 голос/скоринг")
+        lines.append("+5 вход/выход | +10 бонус ROI>20%")
     else:
         total_roi = 0
         completed = 0
@@ -113,23 +121,14 @@ async def cb_spirit_rank(callback: CallbackQuery) -> None:
             lines.append(f"<b>Средний ROI:</b> {avg_roi:+.1f}%")
         lines.append(f"<b>Сделок:</b> {completed} закрыто, {active} открыто")
 
-        rank = "Новичок"
-        if completed >= 10:
-            rank = "Разведчик"
-        if completed >= 5 and total_roi > 0:
-            rank = "Охотник"
-        if completed >= 10 and total_roi / max(completed, 1) > 10:
-            rank = "Мастер"
-
-        lines.append(f"\n\U0001f396 <b>Ранг: {rank}</b>")
-
-        leaderboard = await ActionQueries.get_leaderboard(10)
-        if leaderboard:
-            lines.append("\n<b>\U0001f4ca Лидерборд:</b>\n")
-            for i, entry in enumerate(leaderboard, 1):
-                name = entry.get("username") or f"user_{entry['user_id']}"
-                you = " ← ты" if entry["user_id"] == user_id else ""
-                lines.append(f"{i}. @{name} — {entry['trades']} монет{you}")
+    top = await PointsQueries.get_top(10)
+    if top:
+        lines.append("\n<b>\U0001f4ca Лидерборд:</b>\n")
+        for i, entry in enumerate(top, 1):
+            name = entry.get("username") or f"user_{entry['user_id']}"
+            you = " ← ты" if entry["user_id"] == user_id else ""
+            lvl = PointsQueries.get_level(entry["points"])
+            lines.append(f"{i}. {lvl} @{name} — {entry['points']} SP{you}")
 
     await callback.message.edit_text(
         "\n".join(lines),

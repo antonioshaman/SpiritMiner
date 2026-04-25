@@ -6,11 +6,11 @@ from aiogram.types import CallbackQuery, Message
 
 import aiohttp
 
-from db.queries import CoinQueries, VoteQueries
+from db.queries import CoinQueries, VoteQueries, PointsQueries, PoolDetailQueries
 from keyboards.callbacks import MenuAction, CoinAction
 from keyboards.main_menu import coin_actions_kb, back_to_menu_kb, coin_list_kb
 from services.scorer import compute_score, enrich_from_coingecko
-from utils.formatting import format_coin_card, format_score_breakdown
+from utils.formatting import format_coin_card, format_score_breakdown, format_pool_details
 
 router = Router()
 
@@ -35,6 +35,7 @@ async def cb_check_coin(callback: CallbackQuery, state: FSMContext) -> None:
 async def handle_coin_input(message: Message, state: FSMContext) -> None:
     query = message.text.strip()
     await state.clear()
+    await PointsQueries.award(message.from_user.id, 1)
 
     coins = await CoinQueries.find_coin(query)
 
@@ -51,7 +52,8 @@ async def handle_coin_input(message: Message, state: FSMContext) -> None:
         coin = coins[0]
         score = await CoinQueries.get_latest_score(coin.id)
         sentiment = await VoteQueries.get_sentiment(coin.id)
-        text = format_coin_card(coin, score, sentiment)
+        pools = await PoolDetailQueries.get_pools(coin.id)
+        text = format_coin_card(coin, score, sentiment) + format_pool_details(pools)
         await message.answer(text, reply_markup=coin_actions_kb(coin.id), parse_mode="HTML")
         return
 
@@ -71,7 +73,8 @@ async def cb_coin_detail(callback: CallbackQuery, callback_data: CoinAction) -> 
 
     score = await CoinQueries.get_latest_score(coin.id)
     sentiment = await VoteQueries.get_sentiment(coin.id)
-    text = format_coin_card(coin, score, sentiment)
+    pools = await PoolDetailQueries.get_pools(coin.id)
+    text = format_coin_card(coin, score, sentiment) + format_pool_details(pools)
     await callback.message.edit_text(
         text, reply_markup=coin_actions_kb(coin.id), parse_mode="HTML"
     )
@@ -86,6 +89,7 @@ async def cb_coin_score(callback: CallbackQuery, callback_data: CoinAction) -> N
         return
 
     await callback.answer("Считаю скоринг...", show_alert=False)
+    await PointsQueries.award(callback.from_user.id, 2)
 
     async with aiohttp.ClientSession() as session:
         coin = await enrich_from_coingecko(session, coin)

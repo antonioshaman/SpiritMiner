@@ -59,6 +59,25 @@ def format_coin_card(coin: Coin, score: ScoreBreakdown | None = None, sentiment:
     return "\n".join(lines)
 
 
+def format_pool_details(pools: list[dict]) -> str:
+    if not pools:
+        return ""
+    lines = ["\n<b>⛏️ Пулы (MiningPoolStats):</b>"]
+    for p in pools[:5]:
+        name = p.get("pool_name") or p.get("name", "?")
+        hr = p.get("hashrate", 0)
+        workers = p.get("workers", 0)
+        parts = [f"• {name}"]
+        if hr:
+            parts.append(f" — {_fmt_hashrate(hr)}")
+        if workers:
+            parts.append(f" ({workers} workers)")
+        lines.append("".join(parts))
+    if len(pools) > 5:
+        lines.append(f"  ...и ещё {len(pools) - 5}")
+    return "\n".join(lines)
+
+
 def format_score_breakdown(s: ScoreBreakdown) -> str:
     parts = []
     if s.age_score:

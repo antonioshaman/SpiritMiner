@@ -120,6 +120,22 @@ MIGRATIONS = [
     )""",
     "CREATE INDEX IF NOT EXISTS idx_votes_coin ON votes(coin_id)",
     "CREATE INDEX IF NOT EXISTS idx_actions_user ON user_actions(user_id, coin_id)",
+    """CREATE TABLE IF NOT EXISTS spirit_points (
+        user_id INTEGER PRIMARY KEY,
+        points INTEGER DEFAULT 0,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )""",
+    """CREATE TABLE IF NOT EXISTS pool_details (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        coin_id INTEGER NOT NULL,
+        pool_name TEXT NOT NULL,
+        pool_url TEXT DEFAULT '',
+        hashrate REAL DEFAULT 0,
+        workers INTEGER DEFAULT 0,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(coin_id, pool_name)
+    )""",
+    "CREATE INDEX IF NOT EXISTS idx_pool_details_coin ON pool_details(coin_id)",
 ]
 
 

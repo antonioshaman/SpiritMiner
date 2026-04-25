@@ -477,3 +477,101 @@ class ActionQueries:
             (limit,),
         ) as cur:
             return [dict(r) for r in await cur.fetchall()]
+
+
+class PointsQueries:
+
+    LEVELS = [
+        (0, "Новичок"),
+        (50, "Разведчик"),
+        (200, "Охотник"),
+        (500, "Мастер"),
+        (1000, "Легенда"),
+    ]
+
+    @staticmethod
+    async def award(user_id: int, amount: int) -> int:
+        db = await get_db()
+        await db.execute(
+            """
+            INSERT INTO spirit_points (user_id, points, updated_at)
+            VALUES (?, ?, CURRENT_TIMESTAMP)
+            ON CONFLICT(user_id) DO UPDATE SET
+                points = spirit_points.points + excluded.points,
+                updated_at = CURRENT_TIMESTAMP
+            """,
+            (user_id, amount),
+        )
+        await db.commit()
+        async with db.execute(
+            "SELECT points FROM spirit_points WHERE user_id = ?", (user_id,)
+        ) as cur:
+            row = await cur.fetchone()
+            return row["points"] if row else 0
+
+    @staticmethod
+    async def get_points(user_id: int) -> int:
+        db = await get_db()
+        async with db.execute(
+            "SELECT points FROM spirit_points WHERE user_id = ?", (user_id,)
+        ) as cur:
+            row = await cur.fetchone()
+            return row["points"] if row else 0
+
+    @staticmethod
+    def get_level(points: int) -> str:
+        level = "Новичок"
+        for threshold, name in PointsQueries.LEVELS:
+            if points >= threshold:
+                level = name
+        return level
+
+    @staticmethod
+    def get_next_level(points: int) -> tuple[str, int] | None:
+        for threshold, name in PointsQueries.LEVELS:
+            if points < threshold:
+                return name, threshold - points
+        return None
+
+    @staticmethod
+    async def get_top(limit: int = 20) -> list[dict]:
+        db = await get_db()
+        async with db.execute(
+            """
+            SELECT sp.user_id, sp.points, s.username
+            FROM spirit_points sp
+            LEFT JOIN subscribers s ON s.user_id = sp.user_id
+            ORDER BY sp.points DESC
+            LIMIT ?
+            """,
+            (limit,),
+        ) as cur:
+            return [dict(r) for r in await cur.fetchall()]
+
+
+class PoolDetailQueries:
+
+    @staticmethod
+    async def upsert_pools(coin_id: int, pools: list[dict]) -> None:
+        db = await get_db()
+        for p in pools:
+            await db.execute(
+                """
+                INSERT INTO pool_details (coin_id, pool_name, pool_url, hashrate, workers, updated_at)
+                VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                ON CONFLICT(coin_id, pool_name) DO UPDATE SET
+                    pool_url=excluded.pool_url, hashrate=excluded.hashrate,
+                    workers=excluded.workers, updated_at=CURRENT_TIMESTAMP
+                """,
+                (coin_id, p["name"], p.get("url", ""), p.get("hashrate", 0), p.get("workers", 0)),
+            )
+        await db.commit()
+
+    @staticmethod
+    async def get_pools(coin_id: int) -> list[dict]:
+        db = await get_db()
+        async with db.execute(
+            "SELECT * FROM pool_details WHERE coin_id = ? ORDER BY hashrate DESC",
+            (coin_id,),
+        ) as cur:
+            return [dict(r) for r in await cur.fetchall()]

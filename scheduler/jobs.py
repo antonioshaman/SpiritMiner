@@ -4,9 +4,10 @@ import logging
 
 import aiohttp
 
-from db.queries import CoinQueries
+from db.queries import CoinQueries, PoolDetailQueries
 from services.whattomine import fetch_all_coins
 from services.scorer import compute_score, enrich_from_coingecko
+from services.poolstats import get_pool_details
 
 log = logging.getLogger(__name__)
 
@@ -55,6 +56,9 @@ async def rescore_all() -> None:
                     score = await compute_score(session, coin)
                     await CoinQueries.upsert_coin(coin)
                     await CoinQueries.save_score(score)
+                    pools = await get_pool_details(session, coin.tag)
+                    if pools:
+                        await PoolDetailQueries.upsert_pools(coin.id, pools)
                 except Exception:
                     log.debug("Rescore failed for %s", coin.tag, exc_info=True)
 
