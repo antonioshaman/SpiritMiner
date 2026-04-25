@@ -1,3 +1,5 @@
+from html import escape as _esc
+
 from aiogram import Router, F
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
@@ -41,7 +43,7 @@ async def handle_coin_input(message: Message, state: FSMContext) -> None:
 
     if not coins:
         await message.answer(
-            f"❌ Монета <b>{query}</b> не найдена.\n\n"
+            f"❌ Монета <b>{_esc(query)}</b> не найдена.\n\n"
             "Попробуйте другой тикер или название.",
             reply_markup=back_to_menu_kb(),
             parse_mode="HTML",
@@ -58,7 +60,7 @@ async def handle_coin_input(message: Message, state: FSMContext) -> None:
         return
 
     await message.answer(
-        f"\U0001f50e Найдено {len(coins)} монет по запросу <b>{query}</b>:",
+        f"\U0001f50e Найдено {len(coins)} монет по запросу <b>{_esc(query)}</b>:",
         reply_markup=coin_list_kb(coins, 0, "search"),
         parse_mode="HTML",
     )

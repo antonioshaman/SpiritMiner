@@ -432,9 +432,10 @@ class ActionQueries:
             SELECT ua.*, c.tag, c.name, c.exchange_rate_usd
             FROM user_actions ua
             JOIN coins c ON c.id = ua.coin_id
+            WHERE ua.user_id = ?
             ORDER BY ua.created_at DESC LIMIT ?
             """,
-            (limit,),
+            (user_id, limit),
         ) as cur:
             return [dict(r) for r in await cur.fetchall()]
 

@@ -56,15 +56,29 @@ async def rescore_all() -> None:
                     score = await compute_score(session, coin)
                     await CoinQueries.upsert_coin(coin)
                     await CoinQueries.save_score(score)
-                    pools = await get_pool_details(session, coin.tag)
-                    if pools:
-                        await PoolDetailQueries.upsert_pools(coin.id, pools)
                 except Exception:
-                    log.debug("Rescore failed for %s", coin.tag, exc_info=True)
+                    log.warning("Rescore failed for %s", coin.tag, exc_info=True)
 
         log.info("Rescore complete: %d coins", len(coins))
     except Exception:
         log.exception("Rescore job failed")
+
+
+async def enrich_pool_details() -> None:
+    log.info("Enriching pool details...")
+    try:
+        coins = await CoinQueries.list_all_coins()
+        async with aiohttp.ClientSession() as session:
+            for coin in coins:
+                try:
+                    pools = await get_pool_details(session, coin.tag)
+                    if pools:
+                        await PoolDetailQueries.upsert_pools(coin.id, pools)
+                except Exception:
+                    log.debug("Pool enrichment failed for %s", coin.tag, exc_info=True)
+        log.info("Pool enrichment complete: %d coins", len(coins))
+    except Exception:
+        log.exception("Pool enrichment job failed")
 
 
 async def record_difficulty_history() -> None:

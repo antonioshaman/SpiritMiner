@@ -1,3 +1,5 @@
+from html import escape as _esc
+
 from aiogram import Router, F
 from aiogram.types import CallbackQuery
 
@@ -125,10 +127,10 @@ async def cb_spirit_rank(callback: CallbackQuery) -> None:
     if top:
         lines.append("\n<b>\U0001f4ca Лидерборд:</b>\n")
         for i, entry in enumerate(top, 1):
-            name = entry.get("username") or f"user_{entry['user_id']}"
+            name = _esc(entry.get("username") or f"Miner #{i}")
             you = " ← ты" if entry["user_id"] == user_id else ""
             lvl = PointsQueries.get_level(entry["points"])
-            lines.append(f"{i}. {lvl} @{name} — {entry['points']} SP{you}")
+            lines.append(f"{i}. {lvl} {name} — {entry['points']} SP{you}")
 
     await callback.message.edit_text(
         "\n".join(lines),

@@ -4,7 +4,7 @@ from pathlib import Path
 BASE_DIR = Path(__file__).parent
 
 BOT_TOKEN = os.getenv("SPIRITMINER_BOT_TOKEN", "")
-WTM_API_KEY = os.getenv("WTM_API_KEY", "6a503a311133269a36a84a8bc1746c332523fafd09d41bfaae5bdbe5a7bca7b5")
+WTM_API_KEY = os.getenv("WTM_API_KEY", "")
 WTM_BASE = "https://whattomine.com"
 WTM_API_BASE = "https://whattomine.com/api/v1"
 COINGECKO_BASE = "https://api.coingecko.com/api/v3"

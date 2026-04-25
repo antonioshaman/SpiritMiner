@@ -139,12 +139,18 @@ MIGRATIONS = [
 ]
 
 
+import logging
+
+_log = logging.getLogger(__name__)
+
+
 async def _run_migrations(db: aiosqlite.Connection) -> None:
     for sql in MIGRATIONS:
         try:
             await db.execute(sql)
-        except Exception:
-            pass
+        except Exception as e:
+            if "duplicate column" not in str(e).lower() and "already exists" not in str(e).lower():
+                _log.warning("Migration failed: %s — %s", sql[:60], e)
     await db.commit()
 
 

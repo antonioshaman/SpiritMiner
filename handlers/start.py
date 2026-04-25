@@ -31,7 +31,8 @@ async def cmd_help(message: Message, state: FSMContext) -> None:
 
 
 @router.callback_query(MenuAction.filter(F.action == "main"))
-async def cb_main_menu(callback: CallbackQuery) -> None:
+async def cb_main_menu(callback: CallbackQuery, state: FSMContext) -> None:
+    await state.clear()
     await callback.message.edit_text(WELCOME, reply_markup=main_menu_kb(), parse_mode="HTML")
     await callback.answer()
 

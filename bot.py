@@ -11,7 +11,7 @@ import config
 from db.database import init_db, close_db
 from handlers import start, new_coins, top_scoring, check_coin, calc_entry, exit_conditions
 from handlers import subscribe, hardware, provider, community, partners, spirit_index
-from scheduler.jobs import scan_new_coins, rescore_all, record_difficulty_history
+from scheduler.jobs import scan_new_coins, rescore_all, record_difficulty_history, enrich_pool_details
 from services.alerter import send_new_coin_alerts, send_exit_alerts
 
 logging.basicConfig(
@@ -64,9 +64,10 @@ async def main() -> None:
         await send_exit_alerts(bot)
 
     scheduler = AsyncIOScheduler()
-    scheduler.add_job(scan_new_coins, "interval", minutes=config.SCAN_INTERVAL)
-    scheduler.add_job(rescore_all, "interval", minutes=config.RESCORE_INTERVAL)
+    scheduler.add_job(scan_new_coins, "interval", minutes=config.SCAN_INTERVAL, max_instances=1, coalesce=True)
+    scheduler.add_job(rescore_all, "interval", minutes=config.RESCORE_INTERVAL, max_instances=1, coalesce=True)
     scheduler.add_job(record_difficulty_history, "interval", minutes=config.HISTORY_INTERVAL)
+    scheduler.add_job(enrich_pool_details, "interval", hours=6, max_instances=1, coalesce=True)
     scheduler.add_job(alert_job, "interval", minutes=config.RESCORE_INTERVAL)
     scheduler.start()
     log.info("Scheduler started")
@@ -79,7 +80,12 @@ async def main() -> None:
         await rescore_all()
         log.info("Background rescore complete")
 
-    asyncio.create_task(_background_rescore())
+    def _on_rescore_done(task):
+        if task.exception():
+            log.error("Background rescore failed: %s", task.exception())
+
+    _rescore_task = asyncio.create_task(_background_rescore())
+    _rescore_task.add_done_callback(_on_rescore_done)
 
     version = config.get_version()
     try:

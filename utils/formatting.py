@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from html import escape as _esc
 
 from models.coin import Coin
 from models.score import ScoreBreakdown, ExitSignal
@@ -23,8 +24,8 @@ def format_coin_card(coin: Coin, score: ScoreBreakdown | None = None, sentiment:
         price = f"{coin.exchange_rate_btc:.8f} BTC"
 
     lines = [
-        f"<b>{coin.name}</b> ({coin.tag})",
-        f"⚙️ Алгоритм: {coin.algorithm}",
+        f"<b>{_esc(coin.name)}</b> ({_esc(coin.tag)})",
+        f"⚙️ Алгоритм: {_esc(coin.algorithm)}",
     ]
     if price:
         lines.append(f"\U0001f4b0 Цена: {price}")
@@ -39,10 +40,10 @@ def format_coin_card(coin: Coin, score: ScoreBreakdown | None = None, sentiment:
         lines.append(f"\U0001f4b1 Биржи: {coin.exchange_count}")
     if coin.has_community and coin.community_urls:
         lines.append("\U0001f4e3 Соцсети: " + " | ".join(
-            f'<a href="{u}">{_social_name(u)}</a>' for u in coin.community_urls[:3]
+            f'<a href="{_esc(u)}">{_social_name(u)}</a>' for u in coin.community_urls[:3]
         ))
     if coin.github_url:
-        lines.append(f"\U0001f4bb <a href=\"{coin.github_url}\">GitHub</a>")
+        lines.append(f"\U0001f4bb <a href=\"{_esc(coin.github_url)}\">GitHub</a>")
     if age:
         lines.append(age.strip())
 
@@ -119,7 +120,7 @@ def format_exit_signals(signals: list[ExitSignal]) -> str:
 
 
 def format_entry_strategy(coin: Coin, score: ScoreBreakdown | None) -> str:
-    lines = [f"<b>\U0001f4cb Стратегия входа: {coin.name} ({coin.tag})</b>", ""]
+    lines = [f"<b>\U0001f4cb Стратегия входа: {_esc(coin.name)} ({_esc(coin.tag)})</b>", ""]
 
     if score:
         lines.append(f"{score.signal_emoji} Скоринг: {score.total}/100")
@@ -151,7 +152,7 @@ def format_entry_strategy(coin: Coin, score: ScoreBreakdown | None) -> str:
 def format_coin_list_item(coin: Coin, score: ScoreBreakdown | None, idx: int) -> str:
     signal = score.signal_emoji if score else "❓"
     total = f"{score.total}/100" if score else "—"
-    return f"{idx}. {signal} <b>{coin.tag}</b> ({coin.name}) — {total}"
+    return f"{idx}. {signal} <b>{_esc(coin.tag)}</b> ({_esc(coin.name)}) — {total}"
 
 
 def _social_name(url: str) -> str:
