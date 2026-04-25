@@ -6,7 +6,7 @@ from aiogram.types import CallbackQuery, Message
 
 import aiohttp
 
-from db.queries import CoinQueries
+from db.queries import CoinQueries, VoteQueries
 from keyboards.callbacks import MenuAction, CoinAction
 from keyboards.main_menu import coin_actions_kb, back_to_menu_kb, coin_list_kb
 from services.scorer import compute_score, enrich_from_coingecko
@@ -50,7 +50,8 @@ async def handle_coin_input(message: Message, state: FSMContext) -> None:
     if len(coins) == 1:
         coin = coins[0]
         score = await CoinQueries.get_latest_score(coin.id)
-        text = format_coin_card(coin, score)
+        sentiment = await VoteQueries.get_sentiment(coin.id)
+        text = format_coin_card(coin, score, sentiment)
         await message.answer(text, reply_markup=coin_actions_kb(coin.id), parse_mode="HTML")
         return
 
@@ -69,7 +70,8 @@ async def cb_coin_detail(callback: CallbackQuery, callback_data: CoinAction) -> 
         return
 
     score = await CoinQueries.get_latest_score(coin.id)
-    text = format_coin_card(coin, score)
+    sentiment = await VoteQueries.get_sentiment(coin.id)
+    text = format_coin_card(coin, score, sentiment)
     await callback.message.edit_text(
         text, reply_markup=coin_actions_kb(coin.id), parse_mode="HTML"
     )

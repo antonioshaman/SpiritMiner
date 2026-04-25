@@ -1,6 +1,6 @@
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
-from .callbacks import MenuAction, CoinAction, PageAction
+from .callbacks import MenuAction, CoinAction, PageAction, VoteAction, TradeAction
 
 ITEMS_PER_PAGE = 10
 
@@ -34,6 +34,10 @@ def main_menu_kb() -> InlineKeyboardMarkup:
         [InlineKeyboardButton(
             text="\U0001f3e2 Провайдер-чекер",
             callback_data=MenuAction(action="provider").pack(),
+        )],
+        [InlineKeyboardButton(
+            text="\U0001f3c6 Spirit Rank",
+            callback_data=MenuAction(action="spirit_rank").pack(),
         )],
         [InlineKeyboardButton(
             text="\U0001f514 Подписка на алерты",
@@ -77,10 +81,16 @@ def coin_actions_kb(coin_id: int) -> InlineKeyboardMarkup:
                 callback_data=CoinAction(coin_id=coin_id, action="refresh").pack(),
             ),
         ],
-        [InlineKeyboardButton(
-            text="\U0001f440 В watchlist",
-            callback_data=CoinAction(coin_id=coin_id, action="watch").pack(),
-        )],
+        [
+            InlineKeyboardButton(text="\U0001f44d", callback_data=VoteAction(coin_id=coin_id, vote="bullish").pack()),
+            InlineKeyboardButton(text="\U0001f440", callback_data=VoteAction(coin_id=coin_id, vote="watching").pack()),
+            InlineKeyboardButton(text="❌", callback_data=VoteAction(coin_id=coin_id, vote="bearish").pack()),
+        ],
+        [
+            InlineKeyboardButton(text="⛏️ Зашёл", callback_data=TradeAction(coin_id=coin_id, action="enter").pack()),
+            InlineKeyboardButton(text="\U0001f3c1 Вышел", callback_data=TradeAction(coin_id=coin_id, action="exit").pack()),
+            InlineKeyboardButton(text="\U0001f440 Watch", callback_data=CoinAction(coin_id=coin_id, action="watch").pack()),
+        ],
         [InlineKeyboardButton(
             text="◀️ Назад",
             callback_data=MenuAction(action="main").pack(),

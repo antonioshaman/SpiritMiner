@@ -372,3 +372,108 @@ class WatchlistQueries:
             (coin_id,),
         ) as cur:
             return [r["user_id"] for r in await cur.fetchall()]
+
+
+class VoteQueries:
+
+    @staticmethod
+    async def vote(user_id: int, coin_id: int, vote: str) -> None:
+        db = await get_db()
+        await db.execute(
+            """
+            INSERT INTO votes (user_id, coin_id, vote)
+            VALUES (?, ?, ?)
+            ON CONFLICT(user_id, coin_id) DO UPDATE SET vote=excluded.vote, voted_at=CURRENT_TIMESTAMP
+            """,
+            (user_id, coin_id, vote),
+        )
+        await db.commit()
+
+    @staticmethod
+    async def get_sentiment(coin_id: int) -> dict:
+        db = await get_db()
+        result = {"bullish": 0, "watching": 0, "bearish": 0, "total": 0}
+        async with db.execute(
+            "SELECT vote, COUNT(*) as cnt FROM votes WHERE coin_id = ? GROUP BY vote",
+            (coin_id,),
+        ) as cur:
+            for row in await cur.fetchall():
+                result[row["vote"]] = row["cnt"]
+                result["total"] += row["cnt"]
+        return result
+
+    @staticmethod
+    async def get_user_vote(user_id: int, coin_id: int) -> str | None:
+        db = await get_db()
+        async with db.execute(
+            "SELECT vote FROM votes WHERE user_id = ? AND coin_id = ?",
+            (user_id, coin_id),
+        ) as cur:
+            row = await cur.fetchone()
+            return row["vote"] if row else None
+
+
+class ActionQueries:
+
+    @staticmethod
+    async def record_action(user_id: int, coin_id: int, action: str, price: float = 0) -> None:
+        db = await get_db()
+        await db.execute(
+            "INSERT INTO user_actions (user_id, coin_id, action, price_at_action) VALUES (?, ?, ?, ?)",
+            (user_id, coin_id, action, price),
+        )
+        await db.commit()
+
+    @staticmethod
+    async def get_user_actions(user_id: int, limit: int = 50) -> list[dict]:
+        db = await get_db()
+        async with db.execute(
+            """
+            SELECT ua.*, c.tag, c.name, c.exchange_rate_usd
+            FROM user_actions ua
+            JOIN coins c ON c.id = ua.coin_id
+            ORDER BY ua.created_at DESC LIMIT ?
+            """,
+            (limit,),
+        ) as cur:
+            return [dict(r) for r in await cur.fetchall()]
+
+    @staticmethod
+    async def get_entry_exit_pairs(user_id: int) -> list[dict]:
+        db = await get_db()
+        async with db.execute(
+            """
+            SELECT ua.coin_id, c.tag, c.name, c.exchange_rate_usd as current_price,
+                   e.price_at_action as entry_price, e.created_at as entry_time,
+                   x.price_at_action as exit_price, x.created_at as exit_time
+            FROM user_actions e
+            JOIN coins c ON c.id = e.coin_id
+            LEFT JOIN user_actions x ON x.user_id = e.user_id AND x.coin_id = e.coin_id AND x.action = 'exit'
+                AND x.created_at > e.created_at
+            JOIN (SELECT coin_id, MAX(created_at) as max_entry FROM user_actions WHERE user_id = ? AND action = 'enter' GROUP BY coin_id) ua
+                ON ua.coin_id = e.coin_id AND ua.max_entry = e.created_at
+            WHERE e.user_id = ? AND e.action = 'enter'
+            ORDER BY e.created_at DESC
+            """,
+            (user_id, user_id),
+        ) as cur:
+            return [dict(r) for r in await cur.fetchall()]
+
+    @staticmethod
+    async def get_leaderboard(limit: int = 20) -> list[dict]:
+        db = await get_db()
+        async with db.execute(
+            """
+            SELECT e.user_id,
+                   COUNT(DISTINCT e.coin_id) as trades,
+                   s.username
+            FROM user_actions e
+            LEFT JOIN subscribers s ON s.user_id = e.user_id
+            WHERE e.action = 'enter'
+            GROUP BY e.user_id
+            ORDER BY trades DESC
+            LIMIT ?
+            """,
+            (limit,),
+        ) as cur:
+            return [dict(r) for r in await cur.fetchall()]

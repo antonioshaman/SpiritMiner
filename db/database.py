@@ -102,6 +102,24 @@ CREATE INDEX IF NOT EXISTS idx_sent_alerts ON sent_alerts(user_id, coin_id, aler
 
 MIGRATIONS = [
     "ALTER TABLE coins ADD COLUMN genesis_date TIMESTAMP",
+    """CREATE TABLE IF NOT EXISTS votes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        coin_id INTEGER NOT NULL,
+        vote TEXT NOT NULL,
+        voted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(user_id, coin_id)
+    )""",
+    """CREATE TABLE IF NOT EXISTS user_actions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        coin_id INTEGER NOT NULL,
+        action TEXT NOT NULL,
+        price_at_action REAL DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )""",
+    "CREATE INDEX IF NOT EXISTS idx_votes_coin ON votes(coin_id)",
+    "CREATE INDEX IF NOT EXISTS idx_actions_user ON user_actions(user_id, coin_id)",
 ]
 
 

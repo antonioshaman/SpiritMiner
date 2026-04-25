@@ -6,7 +6,7 @@ from models.coin import Coin
 from models.score import ScoreBreakdown, ExitSignal
 
 
-def format_coin_card(coin: Coin, score: ScoreBreakdown | None = None) -> str:
+def format_coin_card(coin: Coin, score: ScoreBreakdown | None = None, sentiment: dict | None = None) -> str:
     age = ""
     birth = coin.genesis_date or coin.first_seen
     if birth:
@@ -49,6 +49,12 @@ def format_coin_card(coin: Coin, score: ScoreBreakdown | None = None) -> str:
     if score:
         lines.append("")
         lines.append(f"{score.signal_emoji} <b>{score.signal_text}</b> — {score.total}/100")
+
+    if sentiment and sentiment.get("total", 0) > 0:
+        total = sentiment["total"]
+        bull = sentiment.get("bullish", 0)
+        bull_pct = bull * 100 // total
+        lines.append(f"\U0001f4ca Sentiment: {bull_pct}% bullish ({total} голосов)")
 
     return "\n".join(lines)
 
