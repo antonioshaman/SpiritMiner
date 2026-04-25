@@ -67,6 +67,11 @@ PARTNER_EXCHANGES = [
         "focus": "Широкий выбор альткоинов",
     },
     {
+        "name": "OKX",
+        "url": "https://okx.com/join/37933329",
+        "focus": "Топ-3 биржа, много торговых пар",
+    },
+    {
         "name": "Binance",
         "url": "https://www.binance.com/referral/earn-together/refer2earn-usdc/claim?hl=en&ref=GRO_28502_QF3F4&utm_source=referral_entrance",
         "focus": "Крупнейшая биржа, высокая ликвидность",
