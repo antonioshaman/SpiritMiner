@@ -66,6 +66,11 @@ PARTNER_EXCHANGES = [
         "url": "https://www.coinex.com",
         "focus": "Широкий выбор альткоинов",
     },
+    {
+        "name": "Binance",
+        "url": "https://www.binance.com/referral/earn-together/refer2earn-usdc/claim?hl=en&ref=GRO_28502_QF3F4&utm_source=referral_entrance",
+        "focus": "Крупнейшая биржа, высокая ликвидность",
+    },
 ]
 
 
@@ -89,7 +94,7 @@ def format_partners_overview() -> str:
         lines.append(f'• <a href="{e["url"]}">{e["name"]}</a> — {e["focus"]}')
 
     lines.append(
-        "\n<i>Ссылки могут содержать реферальные коды в будущем.</i>"
+        "\n<i>Некоторые ссылки содержат реферальные коды.</i>"
     )
     return "\n".join(lines)
 
