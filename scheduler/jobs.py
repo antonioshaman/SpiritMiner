@@ -24,6 +24,7 @@ async def scan_new_coins() -> None:
                 existing = await CoinQueries.get_coin(coin.id)
                 if existing:
                     coin.first_seen = existing.first_seen
+                    coin.genesis_date = existing.genesis_date or coin.genesis_date
                     coin.github_url = existing.github_url or coin.github_url
                     coin.coingecko_id = existing.coingecko_id or coin.coingecko_id
                     coin.pool_count = max(existing.pool_count, coin.pool_count)
@@ -42,7 +43,7 @@ async def scan_new_coins() -> None:
 async def rescore_all() -> None:
     log.info("Starting rescore...")
     try:
-        coins = await CoinQueries.list_new_coins(days=30, limit=100)
+        coins = await CoinQueries.list_all_coins()
         if not coins:
             log.info("No coins to rescore")
             return

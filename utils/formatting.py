@@ -8,9 +8,13 @@ from models.score import ScoreBreakdown, ExitSignal
 
 def format_coin_card(coin: Coin, score: ScoreBreakdown | None = None) -> str:
     age = ""
-    if coin.first_seen:
-        days = (datetime.utcnow() - coin.first_seen).days
-        age = f"\n\U0001f4c5 Возраст: {days} дн."
+    birth = coin.genesis_date or coin.first_seen
+    if birth:
+        days = (datetime.utcnow() - birth).days
+        if days > 365:
+            age = f"\n\U0001f4c5 Возраст: {days // 365} лет"
+        else:
+            age = f"\n\U0001f4c5 Возраст: {days} дн."
 
     price = ""
     if coin.exchange_rate_usd:

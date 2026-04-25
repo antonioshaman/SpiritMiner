@@ -73,11 +73,26 @@ CREATE INDEX IF NOT EXISTS idx_coins_first_seen ON coins(first_seen DESC);
 """
 
 
+MIGRATIONS = [
+    "ALTER TABLE coins ADD COLUMN genesis_date TIMESTAMP",
+]
+
+
+async def _run_migrations(db: aiosqlite.Connection) -> None:
+    for sql in MIGRATIONS:
+        try:
+            await db.execute(sql)
+        except Exception:
+            pass
+    await db.commit()
+
+
 async def init_db() -> aiosqlite.Connection:
     global _db
     _db = await aiosqlite.connect(config.DB_PATH)
     _db.row_factory = aiosqlite.Row
     await _db.executescript(SCHEMA)
+    await _run_migrations(_db)
     await _db.commit()
     return _db
 

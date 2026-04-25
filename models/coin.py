@@ -34,4 +34,5 @@ class Coin:
     has_premine: bool = False
     has_community: bool = False
     community_urls: list[str] = field(default_factory=list)
+    genesis_date: datetime | None = None
     updated_at: datetime | None = None

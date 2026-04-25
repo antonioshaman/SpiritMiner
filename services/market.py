@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from datetime import datetime
 
 import aiohttp
 
@@ -110,6 +111,15 @@ def extract_github_url(market_data: dict) -> str:
 
 
 def extract_has_premine(market_data: dict) -> bool:
-    genesis = market_data.get("genesis_date", "")
     desc = (market_data.get("description", {}).get("en", "") or "").lower()
     return "premine" in desc or "pre-mine" in desc or "pre-mined" in desc
+
+
+def extract_genesis_date(market_data: dict) -> datetime | None:
+    gd = market_data.get("genesis_date", "")
+    if gd:
+        try:
+            return datetime.fromisoformat(gd)
+        except (ValueError, TypeError):
+            pass
+    return None

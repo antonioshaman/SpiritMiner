@@ -21,11 +21,14 @@ async def compute_score(
 
     now = datetime.utcnow()
 
-    # +20: coin age < 7 days
-    if coin.first_seen:
-        age_days = (now - coin.first_seen).days
+    # +20: coin age < 7 days (use genesis_date if known, else first_seen)
+    coin_birth = coin.genesis_date or coin.first_seen
+    if coin_birth:
+        age_days = (now - coin_birth).days
         if age_days <= config.NEW_COIN_AGE_DAYS:
             s.age_score = 20
+        elif age_days <= 30:
+            s.age_score = 10
 
     # +15: working explorer
     if coin.has_explorer:
@@ -130,6 +133,9 @@ async def enrich_from_coingecko(
                 coin.github_url = gh
             if market.extract_has_premine(data):
                 coin.has_premine = True
+            gd = market.extract_genesis_date(data)
+            if gd and not coin.genesis_date:
+                coin.genesis_date = gd
 
     return coin
 

@@ -38,6 +38,9 @@ def _row_to_coin(row) -> Coin:
         exchange_count=row["exchange_count"] or 0,
         has_premine=bool(row["has_premine"]),
         has_community=bool(row["has_community"]),
+        genesis_date=(
+            datetime.fromisoformat(row["genesis_date"]) if row["genesis_date"] else None
+        ),
         updated_at=(
             datetime.fromisoformat(row["updated_at"]) if row["updated_at"] else None
         ),
@@ -58,7 +61,7 @@ class CoinQueries:
                 market_cap, profitability, profitability_24h, status,
                 pool_count, has_explorer, explorer_url, github_url,
                 coingecko_id, exchange_count, has_premine, has_community,
-                updated_at
+                genesis_date, updated_at
             ) VALUES (
                 ?, ?, ?, ?, ?, ?,
                 ?, ?, ?, ?,
@@ -66,7 +69,7 @@ class CoinQueries:
                 ?, ?, ?, ?,
                 ?, ?, ?, ?,
                 ?, ?, ?, ?,
-                CURRENT_TIMESTAMP
+                ?, CURRENT_TIMESTAMP
             )
             ON CONFLICT(id) DO UPDATE SET
                 tag=excluded.tag, name=excluded.name, algorithm=excluded.algorithm,
@@ -88,6 +91,7 @@ class CoinQueries:
                 exchange_count=excluded.exchange_count,
                 has_premine=excluded.has_premine,
                 has_community=excluded.has_community,
+                genesis_date=COALESCE(excluded.genesis_date, coins.genesis_date),
                 updated_at=CURRENT_TIMESTAMP
             """,
             (
@@ -99,6 +103,7 @@ class CoinQueries:
                 coin.pool_count, int(coin.has_explorer), coin.explorer_url, coin.github_url,
                 coin.coingecko_id, coin.exchange_count, int(coin.has_premine),
                 int(coin.has_community),
+                coin.genesis_date.isoformat() if coin.genesis_date else None,
             ),
         )
         await db.commit()
