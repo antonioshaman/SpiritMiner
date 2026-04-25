@@ -93,6 +93,44 @@ def extract_volume(market_data: dict) -> float:
     return float(vol.get("usd", 0) or 0)
 
 
+def extract_price_usd(market_data: dict) -> float:
+    md = market_data.get("market_data", {})
+    price = md.get("current_price", {})
+    return float(price.get("usd", 0) or 0)
+
+
+def extract_price_btc(market_data: dict) -> float:
+    md = market_data.get("market_data", {})
+    price = md.get("current_price", {})
+    return float(price.get("btc", 0) or 0)
+
+
+async def fetch_simple_price(
+    session: aiohttp.ClientSession, coingecko_id: str
+) -> tuple[float, float]:
+    if not coingecko_id:
+        return 0.0, 0.0
+
+    await _limiter.acquire()
+    try:
+        async with session.get(
+            f"{config.COINGECKO_BASE}/simple/price",
+            params={"ids": coingecko_id, "vs_currencies": "usd,btc"},
+            timeout=aiohttp.ClientTimeout(total=10),
+        ) as resp:
+            if resp.status != 200:
+                return 0.0, 0.0
+            data = await resp.json()
+            coin_data = data.get(coingecko_id, {})
+            return (
+                float(coin_data.get("usd", 0) or 0),
+                float(coin_data.get("btc", 0) or 0),
+            )
+    except Exception:
+        log.debug("CoinGecko simple price failed for %s", coingecko_id, exc_info=True)
+        return 0.0, 0.0
+
+
 def extract_community_active(market_data: dict) -> bool:
     cd = market_data.get("community_data", {})
     twitter = cd.get("twitter_followers", 0) or 0

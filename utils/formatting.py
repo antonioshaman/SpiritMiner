@@ -7,6 +7,16 @@ from models.coin import Coin
 from models.score import ScoreBreakdown, ExitSignal
 
 
+def format_price(value: float) -> str:
+    if value >= 1000:
+        return f"${value:,.2f}"
+    if value >= 1:
+        return f"${value:.4f}"
+    if value >= 0.01:
+        return f"${value:.6f}"
+    return f"${value:.8f}"
+
+
 def format_coin_card(coin: Coin, score: ScoreBreakdown | None = None, sentiment: dict | None = None) -> str:
     age = ""
     birth = coin.genesis_date or coin.first_seen
@@ -19,7 +29,7 @@ def format_coin_card(coin: Coin, score: ScoreBreakdown | None = None, sentiment:
 
     price = ""
     if coin.exchange_rate_usd:
-        price = f"${coin.exchange_rate_usd:.6f}"
+        price = format_price(coin.exchange_rate_usd)
     elif coin.exchange_rate_btc:
         price = f"{coin.exchange_rate_btc:.8f} BTC"
 

@@ -122,6 +122,12 @@ async def enrich_from_coingecko(
     if coin.coingecko_id:
         data = await market.get_market_data(session, coin.coingecko_id)
         if data:
+            price_usd = market.extract_price_usd(data)
+            price_btc = market.extract_price_btc(data)
+            if price_usd:
+                coin.exchange_rate_usd = price_usd
+            if price_btc:
+                coin.exchange_rate_btc = price_btc
             coin.exchange_count = max(coin.exchange_count, market.extract_exchange_count(data))
             vol = market.extract_volume(data)
             if vol > coin.volume_24h:

@@ -1,12 +1,14 @@
 from html import escape as _esc
 
+import aiohttp
 from aiogram import Router, F
 from aiogram.types import CallbackQuery
 
 from db.queries import CoinQueries, VoteQueries, ActionQueries, PointsQueries
 from keyboards.callbacks import MenuAction, VoteAction, TradeAction, CoinAction
 from keyboards.main_menu import coin_actions_kb, back_to_menu_kb
-from utils.formatting import format_coin_card
+from services.market import fetch_simple_price
+from utils.formatting import format_coin_card, format_price
 
 router = Router()
 
@@ -44,12 +46,22 @@ async def cb_trade(callback: CallbackQuery, callback_data: TradeAction) -> None:
         return
 
     price = coin.exchange_rate_usd or coin.exchange_rate_btc
+    if not price and coin.coingecko_id:
+        async with aiohttp.ClientSession() as session:
+            usd, btc = await fetch_simple_price(session, coin.coingecko_id)
+            if usd:
+                price = usd
+                coin.exchange_rate_usd = usd
+                coin.exchange_rate_btc = btc
+                await CoinQueries.upsert_coin(coin)
+            elif btc:
+                price = btc
     await ActionQueries.record_action(user_id, coin_id, action, price)
     pts = await PointsQueries.award(user_id, 5)
 
     if action == "enter":
         await callback.answer(
-            f"⛏️ Зашёл в {coin.tag} по ${price:.6f}. +5 SP ({pts}). Удачи!",
+            f"⛏️ Зашёл в {coin.tag} по {format_price(price)}. +5 SP ({pts}). Удачи!",
             show_alert=True,
         )
     else:
