@@ -1,0 +1,16 @@
+[Unit]
+Description=SpiritMiner PoW Coin Detection Bot
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/root/SpiritMiner
+Environment=PYTHONPATH=/root/SpiritMiner
+Environment=SPIRITMINER_BOT_TOKEN=8363392907:AAFdWW6fqDOHzl0lKB-3HjllcMYqGRCRmAU
+ExecStart=/root/SpiritMiner/venv/bin/python bot.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
