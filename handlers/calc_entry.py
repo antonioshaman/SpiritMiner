@@ -1,4 +1,5 @@
 from aiogram import Router, F
+from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import CallbackQuery, Message
@@ -27,7 +28,7 @@ async def cb_calc_entry(callback: CallbackQuery, state: FSMContext) -> None:
     await callback.answer()
 
 
-@router.message(CalcEntryStates.waiting_for_input)
+@router.message(CalcEntryStates.waiting_for_input, ~Command("start"), ~Command("help"))
 async def handle_entry_input(message: Message, state: FSMContext) -> None:
     query = message.text.strip()
     await state.clear()

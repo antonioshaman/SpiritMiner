@@ -1,5 +1,6 @@
 from aiogram import Router, F
-from aiogram.filters import CommandStart
+from aiogram.filters import CommandStart, Command
+from aiogram.fsm.context import FSMContext
 from aiogram.types import Message, CallbackQuery
 
 from keyboards.callbacks import MenuAction
@@ -18,7 +19,14 @@ WELCOME = (
 
 
 @router.message(CommandStart())
-async def cmd_start(message: Message) -> None:
+async def cmd_start(message: Message, state: FSMContext) -> None:
+    await state.clear()
+    await message.answer(WELCOME, reply_markup=main_menu_kb(), parse_mode="HTML")
+
+
+@router.message(Command("help"))
+async def cmd_help(message: Message, state: FSMContext) -> None:
+    await state.clear()
     await message.answer(WELCOME, reply_markup=main_menu_kb(), parse_mode="HTML")
 
 
@@ -31,16 +39,19 @@ async def cb_main_menu(callback: CallbackQuery) -> None:
 @router.callback_query(MenuAction.filter(F.action == "about"))
 async def cb_about(callback: CallbackQuery) -> None:
     text = (
-        "ℹ️ <b>SpiritMiner v1.0</b>\n\n"
-        "Источники данных:\n"
-        "• WhatToMine API\n"
-        "• MiningPoolStats\n"
-        "• GitHub API\n"
-        "• CoinGecko API\n\n"
-        "<b>Скоринг: 100 баллов</b>\n"
-        "+20 новизна | +15 explorer | +15 пулы\n"
-        "+15 GitHub | +10 комьюнити | +10 биржи\n"
-        "+10 сложность | +5 токеномика\n\n"
+        "ℹ️ <b>SpiritMiner v1.3</b>\n\n"
+        "Разведчик ранних PoW-возможностей.\n"
+        "Нахожу новые монеты, считаю скоринг, "
+        "показываю окно входа и момент выхода.\n\n"
+        "<b>Что умею:</b>\n"
+        "\U0001f195 Новые PoW-монеты — свежие находки\n"
+        "\U0001f3c6 Топ по скорингу — рейтинг 100 баллов\n"
+        "\U0001f50d Проверить монету — полный анализ\n"
+        "\U0001f4c8 Рассчитать вход — стратегия входа\n"
+        "\U0001f6aa Условия выхода — когда пора уходить\n"
+        "\U0001f4bb Калькулятор железа — PnL твоего GPU\n"
+        "\U0001f3e2 Провайдер-чекер — где можно майнить\n"
+        "\U0001f514 Алерты — уведомления о сигналах\n\n"
         "<b>Сигналы:</b>\n"
         "\U0001f7e2 60+ — Можно пробовать\n"
         "\U0001f7e1 35-59 — Только тестовым объёмом\n"
