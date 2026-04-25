@@ -28,6 +28,14 @@ def main_menu_kb() -> InlineKeyboardMarkup:
             callback_data=MenuAction(action="exit_cond").pack(),
         )],
         [InlineKeyboardButton(
+            text="\U0001f4bb Калькулятор железа",
+            callback_data=MenuAction(action="hardware").pack(),
+        )],
+        [InlineKeyboardButton(
+            text="\U0001f3e2 Провайдер-чекер",
+            callback_data=MenuAction(action="provider").pack(),
+        )],
+        [InlineKeyboardButton(
             text="\U0001f514 Подписка на алерты",
             callback_data=MenuAction(action="subscribe").pack(),
         )],

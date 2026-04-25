@@ -10,7 +10,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 import config
 from db.database import init_db, close_db
 from handlers import start, new_coins, top_scoring, check_coin, calc_entry, exit_conditions
-from handlers import subscribe
+from handlers import subscribe, hardware, provider
 from scheduler.jobs import scan_new_coins, rescore_all, record_difficulty_history
 from services.alerter import send_new_coin_alerts, send_exit_alerts
 
@@ -49,6 +49,8 @@ async def main() -> None:
         calc_entry.router,
         exit_conditions.router,
         subscribe.router,
+        hardware.router,
+        provider.router,
     )
 
     await init_db()

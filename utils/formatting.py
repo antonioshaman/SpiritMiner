@@ -37,6 +37,12 @@ def format_coin_card(coin: Coin, score: ScoreBreakdown | None = None) -> str:
         lines.append(f"\U0001f3ca Пулы: {coin.pool_count}")
     if coin.exchange_count:
         lines.append(f"\U0001f4b1 Биржи: {coin.exchange_count}")
+    if coin.has_community and coin.community_urls:
+        lines.append("\U0001f4e3 Соцсети: " + " | ".join(
+            f'<a href="{u}">{_social_name(u)}</a>' for u in coin.community_urls[:3]
+        ))
+    if coin.github_url:
+        lines.append(f"\U0001f4bb <a href=\"{coin.github_url}\">GitHub</a>")
     if age:
         lines.append(age.strip())
 
@@ -121,6 +127,18 @@ def format_coin_list_item(coin: Coin, score: ScoreBreakdown | None, idx: int) ->
     signal = score.signal_emoji if score else "❓"
     total = f"{score.total}/100" if score else "—"
     return f"{idx}. {signal} <b>{coin.tag}</b> ({coin.name}) — {total}"
+
+
+def _social_name(url: str) -> str:
+    if "twitter.com" in url or "x.com" in url:
+        return "Twitter"
+    if "reddit.com" in url:
+        return "Reddit"
+    if "t.me" in url:
+        return "Telegram"
+    if "discord" in url:
+        return "Discord"
+    return "Link"
 
 
 def _fmt_number(n: float) -> str:

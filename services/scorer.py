@@ -126,8 +126,17 @@ async def enrich_from_coingecko(
             vol = market.extract_volume(data)
             if vol > coin.volume_24h:
                 coin.volume_24h = vol
+            community_stats = market.extract_community_stats(data)
             if market.extract_community_active(data):
                 coin.has_community = True
+                urls = []
+                if community_stats.get("twitter_url"):
+                    urls.append(f"https://twitter.com/{community_stats['twitter_url']}")
+                if community_stats.get("reddit_url"):
+                    urls.append(community_stats["reddit_url"])
+                if community_stats.get("telegram_url"):
+                    urls.append(f"https://t.me/{community_stats['telegram_url']}")
+                coin.community_urls = urls
             gh = market.extract_github_url(data)
             if gh and not coin.github_url:
                 coin.github_url = gh

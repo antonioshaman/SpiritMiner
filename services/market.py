@@ -101,6 +101,51 @@ def extract_community_active(market_data: dict) -> bool:
     return (twitter + reddit + tg) > 100
 
 
+def extract_community_stats(market_data: dict) -> dict:
+    cd = market_data.get("community_data", {})
+    links = market_data.get("links", {})
+    return {
+        "twitter_followers": cd.get("twitter_followers", 0) or 0,
+        "reddit_subscribers": cd.get("reddit_subscribers", 0) or 0,
+        "telegram_users": cd.get("telegram_channel_user_count", 0) or 0,
+        "twitter_url": links.get("twitter_screen_name", ""),
+        "reddit_url": links.get("subreddit_url", ""),
+        "telegram_url": links.get("telegram_channel_identifier", ""),
+        "homepage": (links.get("homepage", [""]) or [""])[0],
+        "discord_url": "",
+    }
+
+
+def compute_hype_score(stats: dict) -> int:
+    score = 0
+    tw = stats.get("twitter_followers", 0)
+    rd = stats.get("reddit_subscribers", 0)
+    tg = stats.get("telegram_users", 0)
+
+    if tw > 10000:
+        score += 4
+    elif tw > 1000:
+        score += 2
+    elif tw > 100:
+        score += 1
+
+    if rd > 5000:
+        score += 3
+    elif rd > 500:
+        score += 2
+    elif rd > 50:
+        score += 1
+
+    if tg > 1000:
+        score += 3
+    elif tg > 100:
+        score += 2
+    elif tg > 10:
+        score += 1
+
+    return min(score, 10)
+
+
 def extract_github_url(market_data: dict) -> str:
     repos = market_data.get("developer_data", {}).get("code_additions_deletions_4_weeks", None)
     links = market_data.get("links", {})
