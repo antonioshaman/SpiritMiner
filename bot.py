@@ -70,7 +70,13 @@ async def main() -> None:
 
     log.info("Running initial coin scan...")
     await scan_new_coins()
-    await rescore_all()
+
+    async def _background_rescore():
+        log.info("Background rescore started...")
+        await rescore_all()
+        log.info("Background rescore complete")
+
+    asyncio.create_task(_background_rescore())
 
     log.info("Starting bot polling...")
     try:
