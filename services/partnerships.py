@@ -41,12 +41,7 @@ PARTNER_POOLS = [
 ]
 
 PARTNER_EXCHANGES = [
-    {
-        "name": "TradeOgre",
-        "url": "https://tradeogre.com",
-        "focus": "PoW/privacy монеты, без KYC",
-    },
-    {
+{
         "name": "MEXC",
         "url": "https://www.mexc.com",
         "focus": "Раннее листинг мелких PoW-монет",
