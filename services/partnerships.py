@@ -58,7 +58,7 @@ PARTNER_EXCHANGES = [
     },
     {
         "name": "CoinEx",
-        "url": "https://www.coinex.com",
+        "url": "https://www.coinex.com/register?refer_code=cm2re",
         "focus": "Широкий выбор альткоинов",
     },
     {
