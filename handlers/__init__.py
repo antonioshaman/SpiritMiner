@@ -1,1 +1,1 @@
-from . import start, new_coins, top_scoring, check_coin, calc_entry, exit_conditions
+from . import start, new_coins, top_scoring, check_coin, calc_entry, exit_conditions, subscribe

@@ -28,6 +28,10 @@ def main_menu_kb() -> InlineKeyboardMarkup:
             callback_data=MenuAction(action="exit_cond").pack(),
         )],
         [InlineKeyboardButton(
+            text="\U0001f514 Подписка на алерты",
+            callback_data=MenuAction(action="subscribe").pack(),
+        )],
+        [InlineKeyboardButton(
             text="ℹ️ О боте",
             callback_data=MenuAction(action="about").pack(),
         )],
@@ -65,6 +69,10 @@ def coin_actions_kb(coin_id: int) -> InlineKeyboardMarkup:
                 callback_data=CoinAction(coin_id=coin_id, action="refresh").pack(),
             ),
         ],
+        [InlineKeyboardButton(
+            text="\U0001f440 В watchlist",
+            callback_data=CoinAction(coin_id=coin_id, action="watch").pack(),
+        )],
         [InlineKeyboardButton(
             text="◀️ Назад",
             callback_data=MenuAction(action="main").pack(),

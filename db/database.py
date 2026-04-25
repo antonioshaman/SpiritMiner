@@ -67,9 +67,36 @@ CREATE TABLE IF NOT EXISTS difficulty_history (
     recorded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS subscribers (
+    user_id INTEGER PRIMARY KEY,
+    username TEXT DEFAULT '',
+    alert_new_coins INTEGER DEFAULT 1,
+    alert_exit_signals INTEGER DEFAULT 1,
+    min_score INTEGER DEFAULT 60,
+    subscribed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS watchlist (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    coin_id INTEGER NOT NULL,
+    added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(user_id, coin_id)
+);
+
+CREATE TABLE IF NOT EXISTS sent_alerts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    coin_id INTEGER NOT NULL,
+    alert_type TEXT NOT NULL,
+    sent_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE INDEX IF NOT EXISTS idx_scores_coin ON scores(coin_id, scored_at DESC);
 CREATE INDEX IF NOT EXISTS idx_history_coin ON difficulty_history(coin_id, recorded_at DESC);
 CREATE INDEX IF NOT EXISTS idx_coins_first_seen ON coins(first_seen DESC);
+CREATE INDEX IF NOT EXISTS idx_watchlist_user ON watchlist(user_id);
+CREATE INDEX IF NOT EXISTS idx_sent_alerts ON sent_alerts(user_id, coin_id, alert_type);
 """
 
 

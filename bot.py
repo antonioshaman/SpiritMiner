@@ -10,7 +10,9 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 import config
 from db.database import init_db, close_db
 from handlers import start, new_coins, top_scoring, check_coin, calc_entry, exit_conditions
+from handlers import subscribe
 from scheduler.jobs import scan_new_coins, rescore_all, record_difficulty_history
+from services.alerter import send_new_coin_alerts, send_exit_alerts
 
 logging.basicConfig(
     level=logging.INFO,
@@ -19,8 +21,15 @@ logging.basicConfig(
 )
 log = logging.getLogger(__name__)
 
+_bot: Bot | None = None
+
+
+def get_bot() -> Bot:
+    return _bot
+
 
 async def main() -> None:
+    global _bot
     if not config.BOT_TOKEN:
         log.error("SPIRITMINER_BOT_TOKEN not set")
         sys.exit(1)
@@ -29,6 +38,7 @@ async def main() -> None:
         token=config.BOT_TOKEN,
         default=DefaultBotProperties(parse_mode="HTML"),
     )
+    _bot = bot
     dp = Dispatcher(storage=MemoryStorage())
 
     dp.include_routers(
@@ -38,15 +48,21 @@ async def main() -> None:
         check_coin.router,
         calc_entry.router,
         exit_conditions.router,
+        subscribe.router,
     )
 
     await init_db()
     log.info("Database initialized")
 
+    async def alert_job():
+        await send_new_coin_alerts(bot)
+        await send_exit_alerts(bot)
+
     scheduler = AsyncIOScheduler()
     scheduler.add_job(scan_new_coins, "interval", minutes=config.SCAN_INTERVAL)
     scheduler.add_job(rescore_all, "interval", minutes=config.RESCORE_INTERVAL)
     scheduler.add_job(record_difficulty_history, "interval", minutes=config.HISTORY_INTERVAL)
+    scheduler.add_job(alert_job, "interval", minutes=config.RESCORE_INTERVAL)
     scheduler.start()
     log.info("Scheduler started")
 

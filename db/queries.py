@@ -275,3 +275,100 @@ class CoinQueries:
             (coin_id, limit),
         ) as cur:
             return [dict(r) for r in await cur.fetchall()]
+
+
+class SubscriberQueries:
+
+    @staticmethod
+    async def subscribe(user_id: int, username: str = "") -> None:
+        db = await get_db()
+        await db.execute(
+            """
+            INSERT INTO subscribers (user_id, username)
+            VALUES (?, ?)
+            ON CONFLICT(user_id) DO UPDATE SET username=excluded.username
+            """,
+            (user_id, username),
+        )
+        await db.commit()
+
+    @staticmethod
+    async def unsubscribe(user_id: int) -> None:
+        db = await get_db()
+        await db.execute("DELETE FROM subscribers WHERE user_id = ?", (user_id,))
+        await db.commit()
+
+    @staticmethod
+    async def is_subscribed(user_id: int) -> bool:
+        db = await get_db()
+        async with db.execute(
+            "SELECT 1 FROM subscribers WHERE user_id = ?", (user_id,)
+        ) as cur:
+            return await cur.fetchone() is not None
+
+    @staticmethod
+    async def get_all_subscribers() -> list[dict]:
+        db = await get_db()
+        async with db.execute("SELECT * FROM subscribers") as cur:
+            return [dict(r) for r in await cur.fetchall()]
+
+    @staticmethod
+    async def was_alert_sent(user_id: int, coin_id: int, alert_type: str) -> bool:
+        db = await get_db()
+        async with db.execute(
+            """
+            SELECT 1 FROM sent_alerts
+            WHERE user_id = ? AND coin_id = ? AND alert_type = ?
+            AND sent_at > datetime('now', '-24 hours')
+            """,
+            (user_id, coin_id, alert_type),
+        ) as cur:
+            return await cur.fetchone() is not None
+
+    @staticmethod
+    async def mark_alert_sent(user_id: int, coin_id: int, alert_type: str) -> None:
+        db = await get_db()
+        await db.execute(
+            "INSERT INTO sent_alerts (user_id, coin_id, alert_type) VALUES (?, ?, ?)",
+            (user_id, coin_id, alert_type),
+        )
+        await db.commit()
+
+
+class WatchlistQueries:
+
+    @staticmethod
+    async def add(user_id: int, coin_id: int) -> None:
+        db = await get_db()
+        await db.execute(
+            "INSERT OR IGNORE INTO watchlist (user_id, coin_id) VALUES (?, ?)",
+            (user_id, coin_id),
+        )
+        await db.commit()
+
+    @staticmethod
+    async def remove(user_id: int, coin_id: int) -> None:
+        db = await get_db()
+        await db.execute(
+            "DELETE FROM watchlist WHERE user_id = ? AND coin_id = ?",
+            (user_id, coin_id),
+        )
+        await db.commit()
+
+    @staticmethod
+    async def get_user_watchlist(user_id: int) -> list[int]:
+        db = await get_db()
+        async with db.execute(
+            "SELECT coin_id FROM watchlist WHERE user_id = ? ORDER BY added_at DESC",
+            (user_id,),
+        ) as cur:
+            return [r["coin_id"] for r in await cur.fetchall()]
+
+    @staticmethod
+    async def get_watchers(coin_id: int) -> list[int]:
+        db = await get_db()
+        async with db.execute(
+            "SELECT user_id FROM watchlist WHERE coin_id = ?",
+            (coin_id,),
+        ) as cur:
+            return [r["user_id"] for r in await cur.fetchall()]
