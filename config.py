@@ -24,7 +24,17 @@ DIFF_CRITICAL_MULTIPLIER = 5.0
 MIN_PROFITABILITY = 50
 LOW_VOLUME_USD = 1000
 
+ADMIN_ID = 525931330
+
 # Scheduler intervals (minutes)
 SCAN_INTERVAL = 30
 RESCORE_INTERVAL = 60
 HISTORY_INTERVAL = 60
+
+VERSION_FILE = str(BASE_DIR / "VERSION")
+
+def get_version() -> str:
+    try:
+        return Path(VERSION_FILE).read_text().strip()
+    except FileNotFoundError:
+        return "unknown"

@@ -78,7 +78,23 @@ async def main() -> None:
 
     asyncio.create_task(_background_rescore())
 
-    log.info("Starting bot polling...")
+    version = config.get_version()
+    try:
+        from db.queries import CoinQueries, SubscriberQueries
+        coins = await CoinQueries.list_all_coins()
+        subs = await SubscriberQueries.get_all_subscribers()
+        await bot.send_message(
+            config.ADMIN_ID,
+            f"✅ <b>SpiritMiner v{version} запущен</b>\n\n"
+            f"⛏️ Монет в базе: {len(coins)}\n"
+            f"\U0001f465 Подписчиков: {len(subs)}\n"
+            f"\U0001f4c5 Сканирование: каждые {config.SCAN_INTERVAL} мин\n"
+            f"\U0001f504 Ресокринг: каждые {config.RESCORE_INTERVAL} мин",
+        )
+    except Exception:
+        log.debug("Failed to send startup notification", exc_info=True)
+
+    log.info("Starting bot polling v%s...", version)
     try:
         await dp.start_polling(bot)
     finally:
