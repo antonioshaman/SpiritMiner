@@ -19,13 +19,15 @@ def format_price(value: float) -> str:
 
 def format_coin_card(coin: Coin, score: ScoreBreakdown | None = None, sentiment: dict | None = None) -> str:
     age = ""
-    birth = coin.genesis_date or coin.first_seen
-    if birth:
-        days = (datetime.utcnow() - birth).days
+    if coin.genesis_date:
+        days = (datetime.utcnow() - coin.genesis_date).days
         if days > 365:
             age = f"\n\U0001f4c5 Возраст: {days // 365} лет"
         else:
             age = f"\n\U0001f4c5 Возраст: {days} дн."
+    elif coin.first_seen:
+        days = (datetime.utcnow() - coin.first_seen).days
+        age = f"\n\U0001f4c5 В базе: {days} дн."
 
     price = ""
     if coin.exchange_rate_usd:

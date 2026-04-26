@@ -28,8 +28,9 @@ async def send_new_coin_alerts(bot: Bot) -> None:
         if score.total < 60:
             continue
 
-        coin_birth = coin.genesis_date or coin.first_seen
-        if coin_birth and (now - coin_birth).days > config.MAX_ALERT_AGE_DAYS:
+        if not coin.genesis_date:
+            continue
+        if (now - coin.genesis_date).days > config.MAX_ALERT_AGE_DAYS:
             continue
 
         for sub in subscribers:

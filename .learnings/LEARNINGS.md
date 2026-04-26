@@ -54,3 +54,22 @@
 - Pool enrichment separated into own 6-hour scheduled job (was blocking hourly rescore)
 - Rescore log level changed from debug to warning for per-coin failures (were invisible in production)
 - Leaderboard uses "Miner #N" fallback instead of raw user_id exposure
+
+## Session 2026-04-26
+
+### Critical Bug: Coin age always shows "1 day" (v1.5.2)
+- **Problem**: genesis_date only populated during rescore_all→enrich_from_coingecko, but alerts sent before rescore runs. All coins used first_seen (= when bot discovered them) instead of real genesis date.
+- **Fix 1**: Call enrich_from_coingecko in scan_new_coins for new coins or those missing genesis_date
+- **Fix 2**: Added MAX_ALERT_AGE_DAYS=90 filter in alerter — skip established coins in "new signal" alerts
+- **Lesson**: Data enrichment must happen before the data is consumed for alerts/display, not in a separate deferred job
+
+### Critical Bug: Startup notification blocked by scan (v1.5.3)
+- **Problem**: enrich_from_coingecko added to scan_new_coins meant 135 coins × CoinGecko rate limit (0.3 req/s) blocked startup for ~7.5 min. Admin notification was after await scan_new_coins(), so never arrived promptly.
+- **Fix**: Moved admin notification before scan. Made scan+rescore both run as background asyncio.create_task.
+- **Lesson**: When adding slow enrichment to an existing sync path, check all callers — especially blocking startup sequences. Notifications and polling must not wait on slow I/O.
+- Also added missing parse_mode="HTML" to startup notification
+
+### Bug: Old coins bypass age filter when genesis_date is NULL (v1.5.4)
+- **Problem**: Alerter fallback `coin.genesis_date or coin.first_seen` meant coins without CoinGecko genesis_date (like Salvium/SAL) used first_seen=today, showing "1 дн." and passing the 90-day filter. Recurring issue — same root cause as v1.5.2 but different manifestation.
+- **Fix**: Alerter now requires genesis_date to be non-NULL; coins without it are skipped from alerts entirely. Formatting shows "В базе: X дн." instead of misleading "Возраст" when only first_seen is available.
+- **Lesson**: Fallback chains (`a or b`) in filtering logic are dangerous — they silently degrade the filter. Prefer strict checks (require `a`) when the fallback (`b`) has different semantics than the primary.
