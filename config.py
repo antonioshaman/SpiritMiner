@@ -10,12 +10,14 @@ WTM_API_BASE = "https://whattomine.com/api/v1"
 COINGECKO_BASE = "https://api.coingecko.com/api/v3"
 GITHUB_API_BASE = "https://api.github.com"
 MININGPOOLSTATS_BASE = "https://miningpoolstats.stream"
+COINPAPRIKA_BASE = "https://api.coinpaprika.com/v1"
 
 DB_PATH = str(BASE_DIR / "data" / "spiritminer.db")
 
 # Scoring thresholds
 NEW_COIN_AGE_DAYS = 7
 MAX_ALERT_AGE_DAYS = 90
+SUSPICIOUS_EXCHANGES_FOR_NEW_COIN = 5
 LOW_DIFFICULTY_PERCENTILE = 25
 FRESH_COMMIT_DAYS = 14
 

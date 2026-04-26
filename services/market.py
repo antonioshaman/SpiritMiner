@@ -11,6 +11,7 @@ from utils.rate_limiter import RateLimiter
 log = logging.getLogger(__name__)
 
 _limiter = RateLimiter(calls_per_second=0.3)
+_cp_limiter = RateLimiter(calls_per_second=0.5)
 
 _coin_list_cache: list[dict] | None = None
 
@@ -206,3 +207,53 @@ def extract_genesis_date(market_data: dict) -> datetime | None:
         except (ValueError, TypeError):
             pass
     return None
+
+
+async def find_coinpaprika_id(
+    session: aiohttp.ClientSession, tag: str, name: str
+) -> str:
+    await _cp_limiter.acquire()
+    try:
+        async with session.get(
+            f"{config.COINPAPRIKA_BASE}/search",
+            params={"q": tag, "c": "currencies", "limit": "5"},
+            timeout=aiohttp.ClientTimeout(total=10),
+        ) as resp:
+            if resp.status != 200:
+                return ""
+            data = await resp.json()
+            tag_lower = tag.lower()
+            for c in data.get("currencies", []):
+                if c.get("symbol", "").lower() == tag_lower:
+                    return c.get("id", "")
+            return ""
+    except Exception:
+        log.debug("CoinPaprika search failed for %s", tag, exc_info=True)
+        return ""
+
+
+async def fetch_coinpaprika_start_date(
+    session: aiohttp.ClientSession, tag: str, name: str
+) -> datetime | None:
+    cp_id = await find_coinpaprika_id(session, tag, name)
+    if not cp_id:
+        return None
+
+    await _cp_limiter.acquire()
+    try:
+        async with session.get(
+            f"{config.COINPAPRIKA_BASE}/coins/{cp_id}",
+            timeout=aiohttp.ClientTimeout(total=10),
+        ) as resp:
+            if resp.status != 200:
+                return None
+            data = await resp.json()
+            started = data.get("started_at", "")
+            if started:
+                return datetime.fromisoformat(
+                    started.replace("Z", "+00:00")
+                ).replace(tzinfo=None)
+            return None
+    except Exception:
+        log.debug("CoinPaprika data failed for %s", cp_id, exc_info=True)
+        return None

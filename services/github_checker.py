@@ -46,6 +46,34 @@ async def check_repo_activity(
         return False, None
 
 
+async def get_repo_created_at(
+    session: aiohttp.ClientSession, repo_url: str
+) -> datetime | None:
+    owner_repo = _extract_owner_repo(repo_url)
+    if not owner_repo:
+        return None
+
+    await _limiter.acquire()
+    try:
+        async with session.get(
+            f"{config.GITHUB_API_BASE}/repos/{owner_repo}",
+            headers={"Accept": "application/vnd.github.v3+json"},
+            timeout=aiohttp.ClientTimeout(total=10),
+        ) as resp:
+            if resp.status != 200:
+                return None
+            data = await resp.json()
+            created_at = data.get("created_at", "")
+            if created_at:
+                return datetime.fromisoformat(
+                    created_at.replace("Z", "+00:00")
+                ).replace(tzinfo=None)
+            return None
+    except Exception:
+        log.debug("GitHub repo info failed for %s", repo_url, exc_info=True)
+        return None
+
+
 async def search_repo(
     session: aiohttp.ClientSession, coin_name: str, coin_tag: str
 ) -> str:

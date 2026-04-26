@@ -14,6 +14,55 @@ from . import github_checker, market, poolstats
 log = logging.getLogger(__name__)
 
 
+async def cross_validate_genesis_date(
+    session: aiohttp.ClientSession, coin: Coin
+) -> Coin:
+    if not coin.genesis_date:
+        return coin
+
+    age_days = (datetime.utcnow() - coin.genesis_date).days
+
+    if age_days > config.MAX_ALERT_AGE_DAYS:
+        return coin
+    if coin.exchange_count <= config.SUSPICIOUS_EXCHANGES_FOR_NEW_COIN:
+        return coin
+
+    log.info(
+        "Suspicious genesis_date for %s: %d days but %d exchanges — cross-validating",
+        coin.tag, age_days, coin.exchange_count,
+    )
+
+    alt_date = await market.fetch_coinpaprika_start_date(session, coin.tag, coin.name)
+    if alt_date:
+        alt_age = (datetime.utcnow() - alt_date).days
+        if alt_age > age_days + 30:
+            log.info(
+                "CoinPaprika: %s is %d days old (CoinGecko said %d)",
+                coin.tag, alt_age, age_days,
+            )
+            coin.genesis_date = alt_date
+            return coin
+
+    if coin.github_url:
+        gh_date = await github_checker.get_repo_created_at(session, coin.github_url)
+        if gh_date:
+            gh_age = (datetime.utcnow() - gh_date).days
+            if gh_age > age_days + 30:
+                log.info(
+                    "GitHub: %s repo is %d days old (CoinGecko said %d)",
+                    coin.tag, gh_age, age_days,
+                )
+                coin.genesis_date = gh_date
+                return coin
+
+    log.warning(
+        "Cannot verify genesis_date for %s — clearing (too many exchanges for stated age)",
+        coin.tag,
+    )
+    coin.genesis_date = None
+    return coin
+
+
 async def compute_score(
     session: aiohttp.ClientSession, coin: Coin
 ) -> ScoreBreakdown:
@@ -21,11 +70,16 @@ async def compute_score(
 
     now = datetime.utcnow()
 
-    # +20: coin age < 7 days (use genesis_date if known, else first_seen)
     coin_birth = coin.genesis_date or coin.first_seen
     if coin_birth:
         age_days = (now - coin_birth).days
-        if age_days <= config.NEW_COIN_AGE_DAYS:
+        is_suspicious = (
+            age_days <= 30
+            and coin.exchange_count > config.SUSPICIOUS_EXCHANGES_FOR_NEW_COIN
+        )
+        if is_suspicious:
+            s.age_score = 0
+        elif age_days <= config.NEW_COIN_AGE_DAYS:
             s.age_score = 20
         elif age_days <= 30:
             s.age_score = 10

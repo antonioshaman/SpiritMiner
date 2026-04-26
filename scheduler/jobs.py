@@ -6,7 +6,7 @@ import aiohttp
 
 from db.queries import CoinQueries, PoolDetailQueries
 from services.whattomine import fetch_all_coins
-from services.scorer import compute_score, enrich_from_coingecko
+from services.scorer import compute_score, enrich_from_coingecko, cross_validate_genesis_date
 from services.poolstats import get_pool_details
 
 import config
@@ -40,6 +40,7 @@ async def scan_new_coins() -> None:
                 if is_new or not coin.genesis_date:
                     coin = await enrich_from_coingecko(session, coin)
 
+                coin = await cross_validate_genesis_date(session, coin)
                 await CoinQueries.upsert_coin(coin)
 
             log.info("Scan complete: %d coins processed", len(coins))
@@ -59,6 +60,7 @@ async def rescore_all() -> None:
             for coin in coins:
                 try:
                     coin = await enrich_from_coingecko(session, coin)
+                    coin = await cross_validate_genesis_date(session, coin)
                     score = await compute_score(session, coin)
                     await CoinQueries.upsert_coin(coin)
                     await CoinQueries.save_score(score)
