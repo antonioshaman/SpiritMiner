@@ -72,21 +72,6 @@ async def main() -> None:
     scheduler.start()
     log.info("Scheduler started")
 
-    log.info("Running initial coin scan...")
-    await scan_new_coins()
-
-    async def _background_rescore():
-        log.info("Background rescore started...")
-        await rescore_all()
-        log.info("Background rescore complete")
-
-    def _on_rescore_done(task):
-        if task.exception():
-            log.error("Background rescore failed: %s", task.exception())
-
-    _rescore_task = asyncio.create_task(_background_rescore())
-    _rescore_task.add_done_callback(_on_rescore_done)
-
     version = config.get_version()
     try:
         from db.queries import CoinQueries, SubscriberQueries
@@ -99,9 +84,24 @@ async def main() -> None:
             f"\U0001f465 Подписчиков: {len(subs)}\n"
             f"\U0001f4c5 Сканирование: каждые {config.SCAN_INTERVAL} мин\n"
             f"\U0001f504 Ресокринг: каждые {config.RESCORE_INTERVAL} мин",
+            parse_mode="HTML",
         )
     except Exception:
         log.debug("Failed to send startup notification", exc_info=True)
+
+    async def _background_startup():
+        log.info("Running initial coin scan...")
+        await scan_new_coins()
+        log.info("Initial scan complete, starting rescore...")
+        await rescore_all()
+        log.info("Background startup complete")
+
+    def _on_startup_done(task):
+        if task.exception():
+            log.error("Background startup failed: %s", task.exception())
+
+    _startup_task = asyncio.create_task(_background_startup())
+    _startup_task.add_done_callback(_on_startup_done)
 
     log.info("Starting bot polling v%s...", version)
     try:
