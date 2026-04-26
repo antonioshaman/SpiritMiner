@@ -9,6 +9,8 @@ from services.whattomine import fetch_all_coins
 from services.scorer import compute_score, enrich_from_coingecko
 from services.poolstats import get_pool_details
 
+import config
+
 log = logging.getLogger(__name__)
 
 
@@ -23,6 +25,7 @@ async def scan_new_coins() -> None:
 
             for coin in coins:
                 existing = await CoinQueries.get_coin(coin.id)
+                is_new = existing is None
                 if existing:
                     coin.first_seen = existing.first_seen
                     coin.genesis_date = existing.genesis_date or coin.genesis_date
@@ -33,6 +36,9 @@ async def scan_new_coins() -> None:
                     coin.has_explorer = existing.has_explorer or coin.has_explorer
                     coin.has_community = existing.has_community or coin.has_community
                     coin.has_premine = existing.has_premine or coin.has_premine
+
+                if is_new or not coin.genesis_date:
+                    coin = await enrich_from_coingecko(session, coin)
 
                 await CoinQueries.upsert_coin(coin)
 

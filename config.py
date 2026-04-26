@@ -15,6 +15,7 @@ DB_PATH = str(BASE_DIR / "data" / "spiritminer.db")
 
 # Scoring thresholds
 NEW_COIN_AGE_DAYS = 7
+MAX_ALERT_AGE_DAYS = 90
 LOW_DIFFICULTY_PERCENTILE = 25
 FRESH_COMMIT_DAYS = 14
 

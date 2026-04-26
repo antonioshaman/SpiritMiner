@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import logging
+from datetime import datetime
 
 from aiogram import Bot
 
+import config
 from db.queries import CoinQueries, SubscriberQueries, WatchlistQueries
 from models.coin import Coin
 from models.score import ScoreBreakdown
@@ -20,8 +22,14 @@ async def send_new_coin_alerts(bot: Bot) -> None:
 
     results = await CoinQueries.top_scored(limit=50)
 
+    now = datetime.utcnow()
+
     for coin, score in results:
         if score.total < 60:
+            continue
+
+        coin_birth = coin.genesis_date or coin.first_seen
+        if coin_birth and (now - coin_birth).days > config.MAX_ALERT_AGE_DAYS:
             continue
 
         for sub in subscribers:
