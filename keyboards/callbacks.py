@@ -23,3 +23,15 @@ class VoteAction(CallbackData, prefix="vote"):
 class TradeAction(CallbackData, prefix="trade"):
     coin_id: int
     action: str  # enter, exit
+
+
+class TokenAction(CallbackData, prefix="tok"):
+    # Token addresses are too long for callback_data (64-byte limit).
+    # We store a short hash and look up the (chain, address) from a request-scoped cache.
+    key: str   # short hash, see TokenLookupCache
+    action: str  # detail, score, watch, unwatch, refresh, pick
+
+
+class TokenChainPick(CallbackData, prefix="tokc"):
+    key: str   # address hash
+    chain: str

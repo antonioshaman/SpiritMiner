@@ -5,6 +5,7 @@ from html import escape as _esc
 
 from models.coin import Coin
 from models.score import ScoreBreakdown, ExitSignal
+from models.token import Token, TokenScoreBreakdown, SUPPORTED_CHAINS, chain_explorer_url
 
 
 def format_price(value: float) -> str:
@@ -189,6 +190,131 @@ def _fmt_number(n: float) -> str:
     if n >= 1e3:
         return f"{n / 1e3:.1f}K"
     return f"{n:.2f}"
+
+
+def _short_addr(addr: str) -> str:
+    if len(addr) <= 12:
+        return addr
+    return f"{addr[:6]}…{addr[-4:]}"
+
+
+def _chain_label(chain: str) -> str:
+    labels = {
+        "ethereum": "ETH", "bsc": "BSC", "base": "Base", "arbitrum": "Arb",
+        "polygon": "Polygon", "optimism": "OP", "avalanche": "AVAX",
+        "solana": "SOL", "ton": "TON",
+    }
+    return labels.get(chain, chain.upper())
+
+
+def format_token_card(
+    token: Token, score: TokenScoreBreakdown | None = None
+) -> str:
+    explorer = chain_explorer_url(token.chain, token.address)
+    addr_link = (
+        f'<a href="{_esc(explorer)}">{_short_addr(token.address)}</a>'
+        if explorer else _esc(_short_addr(token.address))
+    )
+
+    title_name = token.name or token.symbol or "Unknown"
+    title_sym = f" ({_esc(token.symbol)})" if token.symbol else ""
+    lines = [
+        f"<b>{_esc(title_name)}</b>{title_sym}",
+        f"\U0001f517 {_chain_label(token.chain)} · {addr_link}",
+    ]
+
+    if token.price_usd:
+        ch1h = ""
+        if token.price_change_1h:
+            arrow = "📈" if token.price_change_1h > 0 else "📉"
+            ch1h = f" {arrow} {token.price_change_1h:+.1f}% 1ч"
+        ch24 = ""
+        if token.price_change_24h:
+            arrow = "📈" if token.price_change_24h > 0 else "📉"
+            ch24 = f" {arrow} {token.price_change_24h:+.1f}% 24ч"
+        lines.append(f"\U0001f4b0 {format_price(token.price_usd)}{ch1h}{ch24}")
+
+    if token.liquidity_usd:
+        lines.append(f"\U0001f4a7 Ликвидность: ${_fmt_number(token.liquidity_usd)}")
+    if token.volume_24h:
+        lines.append(f"\U0001f4ca Объём 24ч: ${_fmt_number(token.volume_24h)}")
+    if token.fdv:
+        lines.append(f"\U0001f3db FDV: ${_fmt_number(token.fdv)}")
+    if token.holder_count:
+        lines.append(f"\U0001f465 Холдеров: {_fmt_number(token.holder_count)}")
+    if token.pair_created_at:
+        days = token.age_days
+        lines.append(f"\U0001f4c5 Возраст пары: {days} дн.")
+    if token.dex:
+        lines.append(f"\U0001f504 DEX: {_esc(token.dex)}")
+
+    sec_lines = []
+    if token.is_honeypot:
+        sec_lines.append("\U0001f6a8 <b>HONEYPOT</b>")
+    if token.audit_coverage == "full":
+        sec_lines.append("✅ Верифицирован" if token.is_verified else "⚠️ Не верифицирован")
+    elif token.audit_coverage == "limited":
+        sec_lines.append("\U0001f6e1 Аудит: ограниченный")
+    else:
+        sec_lines.append("❓ Аудит недоступен")
+
+    if token.top10_concentration:
+        emoji = "🔴" if token.top10_concentration > 50 else (
+            "🟡" if token.top10_concentration > 30 else "🟢"
+        )
+        sec_lines.append(f"{emoji} Top10: {token.top10_concentration:.0f}%")
+    if token.lp_locked_pct and token.audit_coverage == "full":
+        emoji = "🟢" if token.lp_locked_pct >= 50 else "🟡" if token.lp_locked_pct >= 20 else "🔴"
+        sec_lines.append(f"{emoji} LP locked: {token.lp_locked_pct:.0f}%")
+    if token.is_mintable:
+        sec_lines.append("⚠️ Mintable")
+    if token.is_proxy:
+        sec_lines.append("⚠️ Proxy-контракт")
+    if token.can_take_back_ownership or token.hidden_owner:
+        sec_lines.append("🚨 Owner risk")
+    for flag in token.risk_flags[:4]:
+        sec_lines.append(f"⚠️ {_esc(flag)}")
+
+    if sec_lines:
+        lines.append("")
+        lines.extend(sec_lines)
+
+    if score:
+        lines.append("")
+        lines.append(f"{score.signal_emoji} <b>{score.signal_text}</b> — {score.total}/100")
+
+    return "\n".join(lines)
+
+
+def format_token_score_breakdown(s: TokenScoreBreakdown) -> str:
+    parts = []
+    if s.liquidity_score:
+        parts.append(f"+{s.liquidity_score} ликвидность")
+    if s.age_score:
+        parts.append(f"+{s.age_score} возраст")
+    if s.holders_score:
+        parts.append(f"+{s.holders_score} холдеры")
+    if s.volume_score:
+        parts.append(f"+{s.volume_score} объём")
+    if s.security_score:
+        parts.append(f"+{s.security_score} безопасность")
+    if s.penalty_honeypot:
+        parts.append(f"{s.penalty_honeypot} honeypot")
+    if s.penalty_unverified:
+        parts.append(f"{s.penalty_unverified} не верифицирован")
+    if s.penalty_concentration:
+        parts.append(f"{s.penalty_concentration} концентрация")
+    if s.penalty_lp_unlocked:
+        parts.append(f"{s.penalty_lp_unlocked} LP не залочен")
+    if s.penalty_mintable:
+        parts.append(f"{s.penalty_mintable} mintable")
+    if s.penalty_proxy:
+        parts.append(f"{s.penalty_proxy} proxy")
+    if s.penalty_owner_risk:
+        parts.append(f"{s.penalty_owner_risk} owner risk")
+
+    header = f"{s.signal_emoji} <b>Скоринг: {s.total}/100 — {s.signal_text}</b>\n"
+    return header + "\n".join(parts)
 
 
 def _fmt_hashrate(h: float) -> str:

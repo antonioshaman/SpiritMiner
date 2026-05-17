@@ -12,6 +12,7 @@ from db.queries import CoinQueries, VoteQueries, PointsQueries, PoolDetailQuerie
 from keyboards.callbacks import MenuAction, CoinAction
 from keyboards.main_menu import coin_actions_kb, back_to_menu_kb, coin_list_kb
 from services.scorer import compute_score, enrich_from_coingecko
+from utils.address_detect import detect_address
 from utils.formatting import format_coin_card, format_score_breakdown, format_pool_details
 
 router = Router()
@@ -24,8 +25,12 @@ class CheckCoinStates(StatesGroup):
 @router.callback_query(MenuAction.filter(F.action == "check_coin"))
 async def cb_check_coin(callback: CallbackQuery, state: FSMContext) -> None:
     await callback.message.edit_text(
-        "\U0001f50d <b>Проверить монету</b>\n\n"
-        "Введите тикер или название монеты:",
+        "\U0001f50d <b>Проверить</b>\n\n"
+        "Введите:\n"
+        "• тикер/название PoW-монеты (BTC, Monero…)\n"
+        "• адрес ERC-20 (<code>0x…</code>)\n"
+        "• адрес SPL-токена Solana\n"
+        "• адрес TON jetton (<code>EQ…</code> / <code>UQ…</code>)",
         reply_markup=back_to_menu_kb(),
         parse_mode="HTML",
     )
@@ -37,6 +42,13 @@ async def cb_check_coin(callback: CallbackQuery, state: FSMContext) -> None:
 async def handle_coin_input(message: Message, state: FSMContext) -> None:
     query = message.text.strip()
     await state.clear()
+
+    family, normalized = detect_address(query)
+    if family:
+        from handlers.check_token import handle_token_address
+        await handle_token_address(message, family, normalized)
+        return
+
     await PointsQueries.award(message.from_user.id, 1)
 
     coins = await CoinQueries.find_coin(query)

@@ -10,9 +10,11 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 import config
 from db.database import init_db, close_db
 from handlers import start, new_coins, top_scoring, check_coin, calc_entry, exit_conditions
-from handlers import subscribe, hardware, provider, community, partners, spirit_index
+from handlers import subscribe, hardware, provider, community, partners, spirit_index, check_token
 from scheduler.jobs import scan_new_coins, rescore_all, record_difficulty_history, enrich_pool_details
 from services.alerter import send_new_coin_alerts, send_exit_alerts
+from services.token_alerter import poll_watched_tokens, send_token_exit_alerts
+from services.token_discovery import scan_new_tokens
 
 logging.basicConfig(
     level=logging.INFO,
@@ -46,6 +48,7 @@ async def main() -> None:
         new_coins.router,
         top_scoring.router,
         check_coin.router,
+        check_token.router,
         calc_entry.router,
         exit_conditions.router,
         subscribe.router,
@@ -63,12 +66,21 @@ async def main() -> None:
         await send_new_coin_alerts(bot)
         await send_exit_alerts(bot)
 
+    async def token_alert_job():
+        await poll_watched_tokens()
+        await send_token_exit_alerts(bot)
+
+    async def token_discovery_job():
+        await scan_new_tokens(bot)
+
     scheduler = AsyncIOScheduler()
     scheduler.add_job(scan_new_coins, "interval", minutes=config.SCAN_INTERVAL, max_instances=1, coalesce=True)
     scheduler.add_job(rescore_all, "interval", minutes=config.RESCORE_INTERVAL, max_instances=1, coalesce=True)
     scheduler.add_job(record_difficulty_history, "interval", minutes=config.HISTORY_INTERVAL)
     scheduler.add_job(enrich_pool_details, "interval", hours=6, max_instances=1, coalesce=True)
     scheduler.add_job(alert_job, "interval", minutes=config.RESCORE_INTERVAL)
+    scheduler.add_job(token_alert_job, "interval", minutes=config.TOKEN_POLL_INTERVAL, max_instances=1, coalesce=True)
+    scheduler.add_job(token_discovery_job, "interval", minutes=config.TOKEN_DISCOVERY_INTERVAL, max_instances=1, coalesce=True)
     scheduler.start()
     log.info("Scheduler started")
 

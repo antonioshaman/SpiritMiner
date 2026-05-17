@@ -1,6 +1,6 @@
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
-from .callbacks import MenuAction, CoinAction, PageAction, VoteAction, TradeAction
+from .callbacks import MenuAction, CoinAction, PageAction, VoteAction, TradeAction, TokenAction, TokenChainPick
 
 ITEMS_PER_PAGE = 10
 
@@ -83,6 +83,55 @@ def coin_actions_kb(coin_id: int) -> InlineKeyboardMarkup:
             callback_data=MenuAction(action="main").pack(),
         )],
     ])
+
+
+def token_actions_kb(key: str, is_watching: bool = False) -> InlineKeyboardMarkup:
+    watch_btn = (
+        InlineKeyboardButton(
+            text="\U0001f441 Снять с watch",
+            callback_data=TokenAction(key=key, action="unwatch").pack(),
+        )
+        if is_watching
+        else InlineKeyboardButton(
+            text="\U0001f440 Watch",
+            callback_data=TokenAction(key=key, action="watch").pack(),
+        )
+    )
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(
+                text="\U0001f4ca Скоринг",
+                callback_data=TokenAction(key=key, action="score").pack(),
+            ),
+            InlineKeyboardButton(
+                text="\U0001f504 Обновить",
+                callback_data=TokenAction(key=key, action="refresh").pack(),
+            ),
+        ],
+        [watch_btn],
+        [InlineKeyboardButton(
+            text="◀️ Главное меню",
+            callback_data=MenuAction(action="main").pack(),
+        )],
+    ])
+
+
+def token_chain_pick_kb(key: str, chains: list[str]) -> InlineKeyboardMarkup:
+    labels = {
+        "ethereum": "Ethereum", "bsc": "BSC", "base": "Base", "arbitrum": "Arbitrum",
+        "polygon": "Polygon", "optimism": "Optimism", "avalanche": "Avalanche",
+    }
+    rows = []
+    for chain in chains:
+        rows.append([InlineKeyboardButton(
+            text=labels.get(chain, chain.title()),
+            callback_data=TokenChainPick(key=key, chain=chain).pack(),
+        )])
+    rows.append([InlineKeyboardButton(
+        text="◀️ Главное меню",
+        callback_data=MenuAction(action="main").pack(),
+    )])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
 def coin_list_kb(coins: list, page: int, list_type: str) -> InlineKeyboardMarkup:

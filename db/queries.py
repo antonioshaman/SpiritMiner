@@ -4,6 +4,7 @@ from datetime import datetime
 
 from models.coin import Coin
 from models.score import ScoreBreakdown
+from models.token import Token, TokenScoreBreakdown
 from .database import get_db
 
 
@@ -548,6 +549,265 @@ class PointsQueries:
             (limit,),
         ) as cur:
             return [dict(r) for r in await cur.fetchall()]
+
+
+def _row_to_token(row) -> Token:
+    return Token(
+        chain=row["chain"],
+        address=row["address"],
+        symbol=row["symbol"] or "",
+        name=row["name"] or "",
+        price_usd=row["price_usd"] or 0,
+        fdv=row["fdv"] or 0,
+        market_cap=row["market_cap"] or 0,
+        liquidity_usd=row["liquidity_usd"] or 0,
+        volume_24h=row["volume_24h"] or 0,
+        price_change_1h=row["price_change_1h"] or 0,
+        price_change_24h=row["price_change_24h"] or 0,
+        pair_address=row["pair_address"] or "",
+        dex=row["dex"] or "",
+        pair_created_at=(
+            datetime.fromisoformat(row["pair_created_at"]) if row["pair_created_at"] else None
+        ),
+        holder_count=row["holder_count"] or 0,
+        top10_concentration=row["top10_concentration"] or 0,
+        lp_locked_pct=row["lp_locked_pct"] or 0,
+        is_verified=bool(row["is_verified"]),
+        is_honeypot=bool(row["is_honeypot"]),
+        is_mintable=bool(row["is_mintable"]),
+        is_proxy=bool(row["is_proxy"]),
+        can_take_back_ownership=bool(row["can_take_back_ownership"]),
+        hidden_owner=bool(row["hidden_owner"]),
+        audit_coverage=row["audit_coverage"] or "full",
+        risk_flags=(row["risk_flags"] or "").split(",") if row["risk_flags"] else [],
+        first_seen=datetime.fromisoformat(row["first_seen"]) if row["first_seen"] else None,
+        updated_at=datetime.fromisoformat(row["updated_at"]) if row["updated_at"] else None,
+    )
+
+
+class TokenQueries:
+
+    @staticmethod
+    async def upsert_token(t: Token) -> None:
+        db = await get_db()
+        await db.execute(
+            """
+            INSERT INTO tokens (
+                chain, address, symbol, name, price_usd, fdv, market_cap,
+                liquidity_usd, volume_24h, price_change_1h, price_change_24h,
+                pair_address, dex, pair_created_at, holder_count,
+                top10_concentration, lp_locked_pct, is_verified, is_honeypot,
+                is_mintable, is_proxy, can_take_back_ownership, hidden_owner,
+                audit_coverage, risk_flags, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+            ON CONFLICT(chain, address) DO UPDATE SET
+                symbol=excluded.symbol, name=excluded.name,
+                price_usd=excluded.price_usd, fdv=excluded.fdv,
+                market_cap=excluded.market_cap, liquidity_usd=excluded.liquidity_usd,
+                volume_24h=excluded.volume_24h,
+                price_change_1h=excluded.price_change_1h,
+                price_change_24h=excluded.price_change_24h,
+                pair_address=excluded.pair_address, dex=excluded.dex,
+                pair_created_at=COALESCE(excluded.pair_created_at, tokens.pair_created_at),
+                holder_count=excluded.holder_count,
+                top10_concentration=excluded.top10_concentration,
+                lp_locked_pct=excluded.lp_locked_pct,
+                is_verified=excluded.is_verified,
+                is_honeypot=excluded.is_honeypot,
+                is_mintable=excluded.is_mintable,
+                is_proxy=excluded.is_proxy,
+                can_take_back_ownership=excluded.can_take_back_ownership,
+                hidden_owner=excluded.hidden_owner,
+                audit_coverage=excluded.audit_coverage,
+                risk_flags=excluded.risk_flags,
+                updated_at=CURRENT_TIMESTAMP
+            """,
+            (
+                t.chain, t.address, t.symbol, t.name,
+                t.price_usd, t.fdv, t.market_cap,
+                t.liquidity_usd, t.volume_24h,
+                t.price_change_1h, t.price_change_24h,
+                t.pair_address, t.dex,
+                t.pair_created_at.isoformat() if t.pair_created_at else None,
+                t.holder_count, t.top10_concentration, t.lp_locked_pct,
+                int(t.is_verified), int(t.is_honeypot), int(t.is_mintable),
+                int(t.is_proxy), int(t.can_take_back_ownership), int(t.hidden_owner),
+                t.audit_coverage, ",".join(t.risk_flags),
+            ),
+        )
+        await db.commit()
+
+    @staticmethod
+    async def get_token(chain: str, address: str) -> Token | None:
+        db = await get_db()
+        async with db.execute(
+            "SELECT * FROM tokens WHERE chain = ? AND address = ?",
+            (chain, address.lower() if chain != "ton" else address),
+        ) as cur:
+            row = await cur.fetchone()
+            return _row_to_token(row) if row else None
+
+    @staticmethod
+    async def list_all_tokens() -> list[Token]:
+        db = await get_db()
+        async with db.execute("SELECT * FROM tokens ORDER BY updated_at DESC") as cur:
+            return [_row_to_token(r) for r in await cur.fetchall()]
+
+    @staticmethod
+    async def save_score(s: TokenScoreBreakdown) -> None:
+        db = await get_db()
+        await db.execute(
+            """
+            INSERT INTO token_scores (
+                chain, address, total, liquidity_score, age_score, holders_score,
+                security_score, volume_score, penalty_honeypot, penalty_unverified,
+                penalty_concentration, penalty_lp_unlocked, penalty_mintable,
+                penalty_proxy, penalty_owner_risk
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                s.chain, s.address, s.total, s.liquidity_score, s.age_score,
+                s.holders_score, s.security_score, s.volume_score,
+                s.penalty_honeypot, s.penalty_unverified, s.penalty_concentration,
+                s.penalty_lp_unlocked, s.penalty_mintable, s.penalty_proxy,
+                s.penalty_owner_risk,
+            ),
+        )
+        await db.commit()
+
+    @staticmethod
+    async def get_latest_score(chain: str, address: str) -> TokenScoreBreakdown | None:
+        db = await get_db()
+        async with db.execute(
+            """SELECT * FROM token_scores WHERE chain = ? AND address = ?
+               ORDER BY scored_at DESC LIMIT 1""",
+            (chain, address),
+        ) as cur:
+            row = await cur.fetchone()
+            if not row:
+                return None
+            return TokenScoreBreakdown(
+                chain=row["chain"],
+                address=row["address"],
+                total=row["total"],
+                liquidity_score=row["liquidity_score"],
+                age_score=row["age_score"],
+                holders_score=row["holders_score"],
+                security_score=row["security_score"],
+                volume_score=row["volume_score"],
+                penalty_honeypot=row["penalty_honeypot"],
+                penalty_unverified=row["penalty_unverified"],
+                penalty_concentration=row["penalty_concentration"],
+                penalty_lp_unlocked=row["penalty_lp_unlocked"],
+                penalty_mintable=row["penalty_mintable"],
+                penalty_proxy=row["penalty_proxy"],
+                penalty_owner_risk=row["penalty_owner_risk"],
+                scored_at=(
+                    datetime.fromisoformat(row["scored_at"]) if row["scored_at"] else None
+                ),
+            )
+
+    @staticmethod
+    async def record_price(chain: str, address: str, price_usd: float, liquidity_usd: float) -> None:
+        db = await get_db()
+        await db.execute(
+            """INSERT INTO token_price_history (chain, address, price_usd, liquidity_usd)
+               VALUES (?, ?, ?, ?)""",
+            (chain, address, price_usd, liquidity_usd),
+        )
+        await db.commit()
+
+    @staticmethod
+    async def get_price_history(chain: str, address: str, hours: int = 24) -> list[dict]:
+        db = await get_db()
+        async with db.execute(
+            """SELECT * FROM token_price_history
+               WHERE chain = ? AND address = ?
+                 AND recorded_at >= datetime('now', ? || ' hours')
+               ORDER BY recorded_at ASC""",
+            (chain, address, f"-{hours}"),
+        ) as cur:
+            return [dict(r) for r in await cur.fetchall()]
+
+
+class TokenWatchlistQueries:
+
+    @staticmethod
+    async def add(user_id: int, chain: str, address: str, entry_price: float = 0) -> None:
+        db = await get_db()
+        await db.execute(
+            """INSERT OR IGNORE INTO token_watchlist (user_id, chain, address, entry_price_usd)
+               VALUES (?, ?, ?, ?)""",
+            (user_id, chain, address, entry_price),
+        )
+        await db.commit()
+
+    @staticmethod
+    async def remove(user_id: int, chain: str, address: str) -> None:
+        db = await get_db()
+        await db.execute(
+            "DELETE FROM token_watchlist WHERE user_id = ? AND chain = ? AND address = ?",
+            (user_id, chain, address),
+        )
+        await db.commit()
+
+    @staticmethod
+    async def is_watching(user_id: int, chain: str, address: str) -> bool:
+        db = await get_db()
+        async with db.execute(
+            "SELECT 1 FROM token_watchlist WHERE user_id = ? AND chain = ? AND address = ?",
+            (user_id, chain, address),
+        ) as cur:
+            return await cur.fetchone() is not None
+
+    @staticmethod
+    async def get_user_tokens(user_id: int) -> list[dict]:
+        db = await get_db()
+        async with db.execute(
+            """SELECT chain, address, entry_price_usd, added_at FROM token_watchlist
+               WHERE user_id = ? ORDER BY added_at DESC""",
+            (user_id,),
+        ) as cur:
+            return [dict(r) for r in await cur.fetchall()]
+
+    @staticmethod
+    async def all_watched() -> list[dict]:
+        db = await get_db()
+        async with db.execute(
+            "SELECT DISTINCT chain, address FROM token_watchlist"
+        ) as cur:
+            return [dict(r) for r in await cur.fetchall()]
+
+    @staticmethod
+    async def get_watchers(chain: str, address: str) -> list[dict]:
+        db = await get_db()
+        async with db.execute(
+            """SELECT user_id, entry_price_usd FROM token_watchlist
+               WHERE chain = ? AND address = ?""",
+            (chain, address),
+        ) as cur:
+            return [dict(r) for r in await cur.fetchall()]
+
+    @staticmethod
+    async def was_alert_sent(user_id: int, chain: str, address: str, alert_type: str) -> bool:
+        db = await get_db()
+        async with db.execute(
+            """SELECT 1 FROM token_sent_alerts
+               WHERE user_id = ? AND chain = ? AND address = ? AND alert_type = ?
+                 AND sent_at > datetime('now', '-6 hours')""",
+            (user_id, chain, address, alert_type),
+        ) as cur:
+            return await cur.fetchone() is not None
+
+    @staticmethod
+    async def mark_alert_sent(user_id: int, chain: str, address: str, alert_type: str) -> None:
+        db = await get_db()
+        await db.execute(
+            """INSERT INTO token_sent_alerts (user_id, chain, address, alert_type)
+               VALUES (?, ?, ?, ?)""",
+            (user_id, chain, address, alert_type),
+        )
+        await db.commit()
 
 
 class PoolDetailQueries:
