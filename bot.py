@@ -15,6 +15,7 @@ from scheduler.jobs import scan_new_coins, rescore_all, record_difficulty_histor
 from services.alerter import send_new_coin_alerts, send_exit_alerts
 from services.token_alerter import poll_watched_tokens, send_token_exit_alerts
 from services.token_discovery import scan_new_tokens
+from services.candle_signal import poll_ton_candle_signal
 
 logging.basicConfig(
     level=logging.INFO,
@@ -73,6 +74,9 @@ async def main() -> None:
     async def token_discovery_job():
         await scan_new_tokens(bot)
 
+    async def candle_signal_job():
+        await poll_ton_candle_signal(bot)
+
     scheduler = AsyncIOScheduler()
     scheduler.add_job(scan_new_coins, "interval", minutes=config.SCAN_INTERVAL, max_instances=1, coalesce=True)
     scheduler.add_job(rescore_all, "interval", minutes=config.RESCORE_INTERVAL, max_instances=1, coalesce=True)
@@ -81,6 +85,7 @@ async def main() -> None:
     scheduler.add_job(alert_job, "interval", minutes=config.RESCORE_INTERVAL)
     scheduler.add_job(token_alert_job, "interval", minutes=config.TOKEN_POLL_INTERVAL, max_instances=1, coalesce=True)
     scheduler.add_job(token_discovery_job, "interval", minutes=config.TOKEN_DISCOVERY_INTERVAL, max_instances=1, coalesce=True)
+    scheduler.add_job(candle_signal_job, "interval", minutes=config.CANDLE_CHECK_INTERVAL, max_instances=1, coalesce=True)
     scheduler.start()
     log.info("Scheduler started")
 

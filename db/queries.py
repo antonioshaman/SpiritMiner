@@ -809,6 +809,16 @@ class TokenWatchlistQueries:
         )
         await db.commit()
 
+    @staticmethod
+    async def clear_alerts(chain: str, address: str, alert_type: str) -> None:
+        """Drop dedup markers for a signal so the next threshold crossing re-fires."""
+        db = await get_db()
+        await db.execute(
+            "DELETE FROM token_sent_alerts WHERE chain = ? AND address = ? AND alert_type = ?",
+            (chain, address, alert_type),
+        )
+        await db.commit()
+
 
 class PoolDetailQueries:
 
