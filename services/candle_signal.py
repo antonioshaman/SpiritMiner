@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timedelta
+from statistics import median
 
 import aiohttp
 from aiogram import Bot
@@ -31,27 +32,30 @@ def _parse_ts(value: str | None) -> datetime | None:
         return None
 
 
-def _pick_baseline(history: list[dict], window_hours: int) -> dict | None:
-    """Record closest to `window_hours` ago; None if history is too short."""
+def _baseline_price(history: list[dict], window_hours: int, tolerance_hours: int) -> float | None:
+    """Median price of records within `tolerance_hours` of the -window target.
+
+    Median (not the single closest point) makes the baseline robust to one bad print, while
+    staying compatible with the MetaMask-lag thesis (median of 2-3 nearby ticks preserves lag).
+    Returns None when no record falls inside the tolerance window — i.e. history is too short
+    to represent the start of the window, so no signal should fire.
+    """
     if not history:
         return None
-    now = datetime.utcnow()
-    oldest = _parse_ts(history[0].get("recorded_at"))
-    if oldest is None:
-        return None
-    # Need a data point old enough to represent the start of the window.
-    if (now - oldest).total_seconds() < (window_hours - 1) * 3600:
-        return None
-    target = now - timedelta(hours=window_hours)
-    best, best_gap = None, None
+    target = datetime.utcnow() - timedelta(hours=window_hours)
+    tol = tolerance_hours * 3600
+    prices: list[float] = []
     for row in history:
         ts = _parse_ts(row.get("recorded_at"))
         if ts is None:
             continue
-        gap = abs((ts - target).total_seconds())
-        if best_gap is None or gap < best_gap:
-            best, best_gap = row, gap
-    return best
+        if abs((ts - target).total_seconds()) <= tol:
+            price = float(row.get("price_usd") or 0)
+            if price > 0:
+                prices.append(price)
+    if not prices:
+        return None
+    return float(median(prices))
 
 
 async def poll_ton_candle_signal(bot: Bot) -> None:
@@ -66,34 +70,53 @@ async def poll_ton_candle_signal(bot: Bot) -> None:
         log.warning("Candle signal: no on-chain price for %s/%s, skipping", chain, address)
         return
 
-    await TokenQueries.record_price(chain, address, token.price_usd, token.liquidity_usd)
-
     history = await TokenQueries.get_price_history(
         chain, address, hours=config.CANDLE_WINDOW_HOURS + 1
     )
-    baseline = _pick_baseline(history, config.CANDLE_WINDOW_HOURS)
-    if baseline is None:
-        log.info("Candle signal: insufficient history (< %dh), skipping", config.CANDLE_WINDOW_HOURS)
-        return
 
-    old_price = float(baseline.get("price_usd") or 0)
-    if old_price <= 0:
-        log.info("Candle signal: invalid baseline price, skipping")
+    # Outlier guard: one wild print (API glitch) must not be recorded or signalled — otherwise it
+    # both fires a false alert now and poisons the rolling baseline for the whole window.
+    if history:
+        last = float(history[-1].get("price_usd") or 0)
+        if last > 0:
+            dev = abs(token.price_usd - last) / last * 100.0
+            if dev > config.CANDLE_OUTLIER_PCT:
+                log.warning(
+                    "Candle signal: outlier price %.6f vs last %.6f (%.0f%%), skipping",
+                    token.price_usd, last, dev,
+                )
+                return
+
+    await TokenQueries.record_price(chain, address, token.price_usd, token.liquidity_usd)
+    await TokenQueries.prune_price_history(chain, address, config.CANDLE_HISTORY_RETENTION_DAYS)
+
+    old_price = _baseline_price(
+        history, config.CANDLE_WINDOW_HOURS, config.CANDLE_BASELINE_TOLERANCE_HOURS
+    )
+    if old_price is None:
+        log.info(
+            "Candle signal: no baseline within +-%dh of -%dh (insufficient history), skipping",
+            config.CANDLE_BASELINE_TOLERANCE_HOURS, config.CANDLE_WINDOW_HOURS,
+        )
         return
 
     change_pct = (token.price_usd - old_price) / old_price * 100.0
     threshold = config.CANDLE_THRESHOLD_PCT
 
+    # Dedup / cooldown: _broadcast marks each user via `was_alert_sent`, whose window is 6h — that
+    # is the effective safety-net cooldown (not the 12h window). The primary re-fire control is
+    # the hysteresis re-arm below: markers are only cleared once |Δ| retreats < CANDLE_REARM_PCT.
     if change_pct >= threshold:
         await _broadcast(bot, chain, address, GREEN_ALERT, old_price, token.price_usd, change_pct)
         await TokenWatchlistQueries.clear_alerts(chain, address, RED_ALERT)
     elif change_pct <= -threshold:
         await _broadcast(bot, chain, address, RED_ALERT, old_price, token.price_usd, change_pct)
         await TokenWatchlistQueries.clear_alerts(chain, address, GREEN_ALERT)
-    else:
-        # Movement fell back inside the band: reset both so the next crossing re-fires.
+    elif abs(change_pct) < config.CANDLE_REARM_PCT:
+        # Retreated well inside the band: re-arm both directions so the next crossing re-fires.
         await TokenWatchlistQueries.clear_alerts(chain, address, GREEN_ALERT)
         await TokenWatchlistQueries.clear_alerts(chain, address, RED_ALERT)
+    # else: hysteresis dead-band [REARM, threshold) — hold markers, do not re-arm.
 
 
 def _format_message(alert_type: str, old_price: float, new_price: float, change_pct: float, explorer: str) -> str:

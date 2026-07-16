@@ -729,6 +729,18 @@ class TokenQueries:
         ) as cur:
             return [dict(r) for r in await cur.fetchall()]
 
+    @staticmethod
+    async def prune_price_history(chain: str, address: str, days: int) -> None:
+        """Delete price-history rows older than `days` for a contract."""
+        db = await get_db()
+        await db.execute(
+            """DELETE FROM token_price_history
+               WHERE chain = ? AND address = ?
+                 AND recorded_at < datetime('now', ? || ' days')""",
+            (chain, address, f"-{days}"),
+        )
+        await db.commit()
+
 
 class TokenWatchlistQueries:
 

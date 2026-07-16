@@ -34,6 +34,16 @@ TON_SIGNAL_CHAIN = "ethereum"
 TON_SIGNAL_CONTRACT = "0x582d872A1B094FC48F5DE31D3B73F2D9bE47def1"
 CANDLE_WINDOW_HOURS = 12
 CANDLE_THRESHOLD_PCT = 10.0  # |Δ| over the window that fires a signal (both directions)
+# Hysteresis: after a signal fires, re-arm only once |Δ| retreats below this (< threshold),
+# so a price oscillating around the 10% boundary does not re-fire every hour.
+CANDLE_REARM_PCT = 7.0
+# A single on-chain print deviating more than this from the last recorded price is treated
+# as a bad tick: not recorded, no signal (prevents one glitch poisoning the 12h baseline).
+CANDLE_OUTLIER_PCT = 50.0
+# Baseline must be within this many hours of the exact -window target, else skip (no signal).
+CANDLE_BASELINE_TOLERANCE_HOURS = 2
+# Prune token_price_history rows older than this on each poll.
+CANDLE_HISTORY_RETENTION_DAYS = 7
 
 # Scheduler intervals (minutes)
 SCAN_INTERVAL = 30
