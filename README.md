@@ -130,3 +130,15 @@ MIT
 Если бот полезен — можно поддержать автора:
 
 **Telegram:** [@shamanael](https://t.me/shamanael)
+
+## TON/GRAM arbitrage scanner
+
+The candle-based TON trade recommendations have been replaced by a read-only
+full-cycle scanner. `/arb` (administrator) evaluates configured trade sizes;
+`/arb_help` explains the route. Uniswap uses real amount-specific RPC quotes.
+Missing bridge or Wallet quote providers produce `BLOCKED`, never a profit
+signal. This is not an automatic trader or a guarantee of profit.
+Configuration, provider contracts, accounting and current limitations:
+[specs/arbitrage.md](specs/arbitrage.md).
+
+Run verification: `python -m unittest discover -s tests -v`.
