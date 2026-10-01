@@ -1,3 +1,6 @@
+> SUPERSEDED: historical specification. Candle-based trade recommendations
+> are disabled. See [arbitrage.md](arbitrage.md) for the current cycle scanner.
+
 # Спека: Сигнал по зелёной 12-часовой свече TONcoin (ERC-20 → native)
 
 **Тир:** Feature

@@ -29,21 +29,16 @@ LOW_VOLUME_USD = 1000
 
 ADMIN_ID = 525931330
 
-# TON 12h green-candle signal (ERC-20 -> native arbitrage)
-TON_SIGNAL_CHAIN = "ethereum"
-TON_SIGNAL_CONTRACT = "0x582d872A1B094FC48F5DE31D3B73F2D9bE47def1"
-CANDLE_WINDOW_HOURS = 12
-CANDLE_THRESHOLD_PCT = 10.0  # |Δ| over the window that fires a signal (both directions)
-# Hysteresis: after a signal fires, re-arm only once |Δ| retreats below this (< threshold),
-# so a price oscillating around the 10% boundary does not re-fire every hour.
-CANDLE_REARM_PCT = 7.0
-# A single on-chain print deviating more than this from the last recorded price is treated
-# as a bad tick: not recorded, no signal (prevents one glitch poisoning the 12h baseline).
-CANDLE_OUTLIER_PCT = 50.0
-# Baseline must be within this many hours of the exact -window target, else skip (no signal).
-CANDLE_BASELINE_TOLERANCE_HOURS = 2
-# Prune token_price_history rows older than this on each poll.
-CANDLE_HISTORY_RETENTION_DAYS = 7
+# Read-only full-cycle arbitrage; missing providers block profit signals.
+ARB_ETH_RPC_URL = os.getenv("ARB_ETH_RPC_URL", "")
+ARB_BRIDGE_QUOTE_URL = os.getenv("ARB_BRIDGE_QUOTE_URL", "")
+ARB_SETTLEMENT_QUOTE_URL = os.getenv("ARB_SETTLEMENT_QUOTE_URL", "")
+ARB_NATIVE_QUOTE_URL = os.getenv("ARB_NATIVE_QUOTE_URL", "")
+ARB_TRADE_SIZES = tuple(x.strip() for x in os.getenv("ARB_TRADE_SIZES", "100,500,1000").split(",") if x.strip())
+ARB_MIN_NET_PCT = os.getenv("ARB_MIN_NET_PCT", "3")
+ARB_SAFETY_BPS = os.getenv("ARB_SAFETY_BPS", "100")
+ARB_MAX_QUOTE_AGE_SECONDS = int(os.getenv("ARB_MAX_QUOTE_AGE_SECONDS", "60"))
+ARB_POLL_SECONDS = int(os.getenv("ARB_POLL_SECONDS", "60"))
 
 # Scheduler intervals (minutes)
 SCAN_INTERVAL = 30
@@ -51,7 +46,6 @@ RESCORE_INTERVAL = 60
 HISTORY_INTERVAL = 60
 TOKEN_POLL_INTERVAL = 15
 TOKEN_DISCOVERY_INTERVAL = 2880
-CANDLE_CHECK_INTERVAL = 60
 
 VERSION_FILE = str(BASE_DIR / "VERSION")
 
